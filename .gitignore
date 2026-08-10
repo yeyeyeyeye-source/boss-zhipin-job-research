@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Runtime databases and job data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.xlsx
+boss_jobs_*.json
+boss_jobs_*.csv
+boss_details_*.json
+boss_details_*.csv
+job-result/
+live-runs/
+logs/
+chrome-profile/
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Local development workspaces
+.worktrees/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

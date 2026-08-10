@@ -1,0 +1,45 @@
+[project]
+name = "boss-zhipin-scraper"
+version = "2.6.0"
+description = "BOSS直聘职位抓取工具 — Chrome CDP + API 明文薪资"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "eatmoreduck" }
+]
+keywords = ["zhipin", "boss", "scraper", "cdp", "jobs"]
+
+dependencies = [
+    "websocket-client>=1.6.0,<2.0.0",
+    "requests>=2.28.0,<3.0.0",
+    "streamlit>=1.46.0,<2.0.0",
+    "pandas>=2.2.0,<3.0.0",
+    "openpyxl>=3.1.0,<4.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+all = [
+    "websocket-client>=1.6.0,<2.0.0",
+    "requests>=2.28.0,<3.0.0",
+    "streamlit>=1.46.0,<2.0.0",
+    "pandas>=2.2.0,<3.0.0",
+    "openpyxl>=3.1.0,<4.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+]
+
+[project.scripts]
+# wheel 同时打包 scripts（CDP/CLI）和 boss_app（本地应用服务）。
+boss-scraper = "scripts.boss_cdp_raw:main"
+boss-summary = "scripts.job_summary:main"
+boss-jobs = "boss_app.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts", "boss_app"]
+# 城市码表 data/city_codes.json 打进 wheel，pip install 后也能读到（见 issue #24）
+force-include = { "data/city_codes.json" = "data/city_codes.json" }
