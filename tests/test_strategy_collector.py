@@ -158,6 +158,167 @@ class StrategyCollectorTests(unittest.TestCase):
             for call in core_module.scrape_list.call_args_list
         ))
 
+    def test_strategy_drains_saved_detail_before_requesting_a_list_page(self):
+        task_id = self.task_ids[0]
+        self.database.update_task_limits(
+            task_id, max_jobs=2, max_pages=1, run_mode="pipeline-test",
+        )
+        self.database.upsert_job(task_id, {
+            "job_id": "saved", "encrypt_job_id": "source-saved",
+            "title": "saved", "job_link": "https://example.test/saved",
+        })
+        token = "worker"
+        self.assertTrue(self.database.reserve_worker(task_id, token))
+        events = []
+        core_module = self._core_mock()
+
+        def list_page(*_args, **kwargs):
+            events.append("list:1")
+            kwargs["on_job"]({
+                "job_id": "new", "encrypt_job_id": "source-new",
+                "title": "new", "job_link": "https://example.test/new",
+            })
+            kwargs["on_page_complete"](2)
+            return {"total": 1, "jobs": []}
+
+        def fetch(job, **_kwargs):
+            events.append(f"detail:{job['title']}")
+            return {
+                "title": job["title"], "location": "Beijing", "salary": "20-30K",
+                "jd": "complete JD", "detail_url": job["job_link"],
+            }
+
+        core_module.scrape_list.side_effect = list_page
+        core_module.fetch_job_detail.side_effect = fetch
+        collector = Collector(
+            self.database,
+            core_module=core_module,
+            ai_parser=_EventTargetParser(events),
+            sleep_fn=lambda _seconds: None,
+            jitter_fn=lambda *_args: 0,
+        )
+        with mock.patch(
+            "boss_app.collector.LoginManager.status",
+            return_value=LoginState(LoginStatus.LOGGED_IN),
+        ):
+            collector.run(task_id, token)
+
+        self.assertLess(events.index("detail:saved"), events.index("list:1"))
+        self.assertLess(events.index("ai:saved"), events.index("list:1"))
+        self.assertEqual(
+            [event for event in events if event == "detail:saved"],
+            ["detail:saved"],
+        )
+
+    def test_strategy_advances_past_a_duplicate_only_page(self):
+        task_id = self.task_ids[0]
+        self.database.update_task_limits(
+            task_id, max_jobs=2, max_pages=2, run_mode="pipeline-test",
+        )
+        self.database.upsert_job(task_id, {
+            "job_id": "shared", "encrypt_job_id": "source-shared",
+            "title": "shared", "job_link": "https://example.test/shared",
+        })
+        shared = self.database.list_jobs(task_id)[0]
+        self.database.update_job(
+            task_id, shared["job_id"], full_jd="complete JD",
+            crawl_status="completed", ai_status="completed",
+        )
+        token = "worker"
+        self.assertTrue(self.database.reserve_worker(task_id, token))
+        core_module = self._core_mock()
+
+        def list_page(*_args, **kwargs):
+            page = kwargs["start_page"]
+            if page == 1:
+                kwargs["on_job"]({
+                    "job_id": "shared-again", "encrypt_job_id": "source-shared",
+                    "title": "shared", "job_link": "https://example.test/shared",
+                })
+            else:
+                kwargs["on_job"]({
+                    "job_id": "new", "encrypt_job_id": "source-new",
+                    "title": "new", "job_link": "https://example.test/new",
+                })
+            kwargs["on_page_complete"](page + 1)
+            return {"total": 1, "jobs": []}
+
+        core_module.scrape_list.side_effect = list_page
+        core_module.fetch_job_detail.return_value = {
+            "title": "new", "location": "Beijing", "salary": "20-30K",
+            "jd": "complete JD", "detail_url": "https://example.test/new",
+        }
+        collector = Collector(
+            self.database,
+            core_module=core_module,
+            ai_parser=_ConfiguredParser(),
+            sleep_fn=lambda _seconds: None,
+            jitter_fn=lambda *_args: 0,
+        )
+        with mock.patch(
+            "boss_app.collector.LoginManager.status",
+            return_value=LoginState(LoginStatus.LOGGED_IN),
+        ):
+            collector.run(task_id, token)
+
+        self.assertEqual(
+            [call.kwargs["start_page"] for call in core_module.scrape_list.call_args_list],
+            [1, 2],
+        )
+        new_row = next(
+            row for row in self.database.list_jobs(task_id)
+            if row["job_name"] == "new"
+        )
+        self.assertEqual(new_row["ai_status"], "completed")
+
+    def test_strategy_detail_restriction_stops_before_the_next_list_page(self):
+        task_id = self.task_ids[0]
+        self.database.update_task_limits(
+            task_id, max_jobs=4, max_pages=2, run_mode="pipeline-test",
+        )
+        token = "worker"
+        self.assertTrue(self.database.reserve_worker(task_id, token))
+        core_module = self._core_mock()
+
+        def list_page(*_args, **kwargs):
+            page = kwargs["start_page"]
+            for index in (1, 2):
+                kwargs["on_job"]({
+                    "job_id": f"p{page}-{index}",
+                    "encrypt_job_id": f"source-p{page}-{index}",
+                    "title": f"job p{page}-{index}",
+                    "job_link": f"https://example.test/p{page}-{index}",
+                })
+            kwargs["on_page_complete"](page + 1)
+            return {"total": 2, "jobs": []}
+
+        core_module.scrape_list.side_effect = list_page
+        core_module.fetch_job_detail.side_effect = RuntimeError(
+            "BOSS access restricted: code: 37"
+        )
+        core_module.is_access_restriction_error.side_effect = (
+            lambda error: "code: 37" in str(error)
+        )
+        collector = Collector(
+            self.database,
+            core_module=core_module,
+            ai_parser=_ConfiguredParser(),
+            sleep_fn=lambda _seconds: None,
+            jitter_fn=lambda *_args: 0,
+        )
+        with mock.patch(
+            "boss_app.collector.LoginManager.status",
+            return_value=LoginState(LoginStatus.LOGGED_IN),
+        ):
+            collector.run(task_id, token)
+
+        self.assertEqual(core_module.scrape_list.call_count, 1)
+        self.assertEqual(core_module.fetch_job_detail.call_count, 1)
+        self.assertEqual(
+            self.database.get_task(task_id)["status"], "waiting_for_access"
+        )
+        self.assertEqual(self.database.get_task(task_id)["list_next_page"], 2)
+
     def test_complete_catalog_detail_is_not_fetched_again_in_second_city(self):
         job = {
             "job_id": "shared", "encrypt_job_id": "source-shared",
