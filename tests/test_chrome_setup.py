@@ -879,6 +879,36 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertEqual([call.args[4] for call in fetch.call_args_list], [6, 7])
         self.assertEqual(completed, [7, 8])
 
+    def test_scrape_list_page_limit_stops_after_one_page_and_advances_cursor(self):
+        module = load_module()
+        cdp = mock.Mock()
+        completed = []
+        module._request_counter = 0
+
+        with mock.patch.object(module, "CDPSession", return_value=cdp), \
+                mock.patch.object(
+                    module, "resolve_city", return_value=("深圳", "101280600")
+                ), \
+                mock.patch.object(
+                    module,
+                    "create_page_session",
+                    return_value=("list-target", "list-session"),
+                ), \
+                mock.patch.object(
+                    module, "fetch_list_page", side_effect=[[], []]
+                ) as fetch, \
+                mock.patch.object(module.time, "sleep"):
+            with redirect_stdout(io.StringIO()):
+                module.scrape_list(
+                    "AI产品", "深圳", 15, {}, "jobs.json",
+                    start_page=7,
+                    page_limit=1,
+                    on_page_complete=completed.append,
+                )
+
+        self.assertEqual([call.args[4] for call in fetch.call_args_list], [7])
+        self.assertEqual(completed, [8])
+
     def test_scrape_list_does_not_advance_cursor_for_partial_page(self):
         module = load_module()
         cdp = mock.Mock()
