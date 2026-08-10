@@ -122,7 +122,13 @@ class Collector:
         })
         return source
 
-    def _collect_list(self, task: dict[str, Any], token: str) -> bool:
+    def _collect_list(
+        self,
+        task: dict[str, Any],
+        token: str,
+        *,
+        one_page: bool = False,
+    ) -> bool:
         task_id = task["task_id"]
         latest_task = self.database.get_task(task_id) or task
         start_page = max(1, int(latest_task.get("list_next_page") or 1))
@@ -179,6 +185,7 @@ class Collector:
                 start_page=start_page,
                 on_page_complete=on_page_complete,
                 request_budget=self.request_budget,
+                page_limit=1 if one_page else None,
             )
         except (KeyError, OSError, RuntimeError, TimeoutError) as exc:
             if self._is_access_error(exc):
@@ -408,6 +415,63 @@ class Collector:
         """Process only saved complete JDs and leave city completion to the Runner."""
         return self._process_ai(task_id, token)
 
+    def _run_strategy_batches(self, task_id: str, token: str) -> bool:
+        """Drain one saved page before asking BOSS for the next list page."""
+        while True:
+            task = self.database.get_task(task_id)
+            if task is None:
+                raise KeyError(task_id)
+            requires_gate = self._requires_ai_operations_gate(task)
+
+            if not self._collect_details(task_id, token):
+                return False
+            if not self._process_ai(task_id, token):
+                return False
+            if self._paused(task_id):
+                self.database.update_task(
+                    task_id, status="paused", current_job_id=None,
+                )
+                return False
+
+            task = self.database.get_task(task_id)
+            if task is None:
+                raise KeyError(task_id)
+            jobs = self.database.list_jobs(task_id)
+            if any(row["ai_status"] == "waiting_for_ai" for row in jobs):
+                self.database.update_task(
+                    task_id, status="waiting_for_ai", current_job_id=None,
+                )
+                return False
+
+            snapshot = self.database.snapshot(task_id)
+            current_count = snapshot["qualified"] if requires_gate else len(jobs)
+            pages_exhausted = (
+                int(task["list_next_page"]) > int(task["max_pages"])
+            )
+            if current_count >= int(task["max_jobs"]) or pages_exhausted:
+                return True
+
+            retryable_details = any(
+                row["crawl_attempts"] < self.detail_max_retries
+                for row in self.database.next_jobs(task_id, "crawl")
+            )
+            if retryable_details:
+                self._network_pause()
+                continue
+
+            if not self._collect_list(task, token, one_page=True):
+                current = self.database.get_task(task_id)
+                if (
+                    current
+                    and current["status"] != "waiting_for_access"
+                    and self._paused(task_id)
+                ):
+                    self.database.update_task(
+                        task_id, status="paused", current_job_id=None,
+                    )
+                return False
+            self._network_pause()
+
     def run_existing(self, task_id: str, token: str) -> None:
         """Process candidates already saved for a task without listing again."""
         self.run(task_id, token, existing_only=True)
@@ -444,6 +508,9 @@ class Collector:
                 return
         if existing_only and not ai_only:
             if not self._collect_details(task_id, token):
+                return
+        elif task["strategy_id"] and not ai_only:
+            if not self._run_strategy_batches(task_id, token):
                 return
         elif requires_gate and not ai_only:
             while True:
