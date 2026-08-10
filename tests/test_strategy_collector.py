@@ -6,6 +6,7 @@ from unittest import mock
 from boss_app.ai_parser import AIConfig, JDParser, TargetParsedJD
 from boss_app.collector import Collector
 from boss_app.db import Database
+from boss_app.login_manager import LoginState, LoginStatus
 from boss_app.request_budget import RequestBudgetExhausted
 from boss_app.strategy_model import StrategySpec
 
@@ -26,6 +27,21 @@ class _ConfiguredParser(JDParser):
             job_responsibilities=["职责"],
             job_requirements=["要求"],
             bonus_points=["无"],
+        )
+
+
+class _EventTargetParser(_ConfiguredParser):
+    def __init__(self, events):
+        super().__init__()
+        self.events = events
+
+    def parse_target(self, full_jd, *, target_role, target_type, context=None):
+        self.events.append(f"ai:{context['job_name']}")
+        return super().parse_target(
+            full_jd,
+            target_role=target_role,
+            target_type=target_type,
+            context=context,
         )
 
 
@@ -83,6 +99,64 @@ class StrategyCollectorTests(unittest.TestCase):
         row = self.database.list_jobs(task_id)[0]
         self.assertEqual(row["crawl_status"], "pending")
         self.assertEqual(row["crawl_attempts"], 0)
+
+    def test_strategy_processes_page_details_before_requesting_next_page(self):
+        task_id = self.task_ids[0]
+        self.database.update_task_limits(
+            task_id, max_jobs=4, max_pages=2, run_mode="pipeline-test",
+        )
+        token = "worker"
+        self.assertTrue(self.database.reserve_worker(task_id, token))
+        events = []
+        core_module = self._core_mock()
+
+        def list_pages(*_args, **kwargs):
+            first_page = kwargs["start_page"]
+            page_count = 1 if kwargs.get("page_limit") == 1 else 2
+            for page in range(first_page, first_page + page_count):
+                events.append(f"list:{page}")
+                for index in (1, 2):
+                    kwargs["on_job"]({
+                        "job_id": f"p{page}-{index}",
+                        "encrypt_job_id": f"source-p{page}-{index}",
+                        "title": f"job p{page}-{index}",
+                        "job_link": f"https://example.test/p{page}-{index}",
+                    })
+                kwargs["on_page_complete"](page + 1)
+            return {"total": page_count * 2, "jobs": []}
+
+        def fetch(job, **_kwargs):
+            events.append(f"detail:{job['title']}")
+            return {
+                "title": job["title"], "location": "Beijing", "salary": "20-30K",
+                "jd": "complete JD", "detail_url": job["job_link"],
+            }
+
+        core_module.scrape_list.side_effect = list_pages
+        core_module.fetch_job_detail.side_effect = fetch
+        collector = Collector(
+            self.database,
+            core_module=core_module,
+            ai_parser=_EventTargetParser(events),
+            sleep_fn=lambda _seconds: None,
+            jitter_fn=lambda *_args: 0,
+        )
+
+        with mock.patch(
+            "boss_app.collector.LoginManager.status",
+            return_value=LoginState(LoginStatus.LOGGED_IN),
+        ):
+            collector.run(task_id, token)
+
+        second_list = events.index("list:2")
+        self.assertIn("detail:job p1-1", events[:second_list])
+        self.assertIn("detail:job p1-2", events[:second_list])
+        self.assertIn("ai:job p1-1", events[:second_list])
+        self.assertIn("ai:job p1-2", events[:second_list])
+        self.assertTrue(all(
+            call.kwargs["page_limit"] == 1
+            for call in core_module.scrape_list.call_args_list
+        ))
 
     def test_complete_catalog_detail_is_not_fetched_again_in_second_city(self):
         job = {
