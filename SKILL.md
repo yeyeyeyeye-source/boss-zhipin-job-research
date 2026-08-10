@@ -5,7 +5,7 @@ description: Collect and analyze public BOSS直聘 job listings through the user
 
 # BOSS直聘岗位采集
 
-Version: 2.6.0
+Version: 2.7.0
 
 仅用于用户个人求职分析。复用本 Skill 内现有 `boss_app`、`scripts/boss_cdp_raw.py` 和 `data/city_codes.json`，不要复制 CDP 实现。
 
@@ -59,7 +59,7 @@ python -m boss_app.cli run `
   --execute
 ```
 
-3. 多城市按顺序访问 BOSS。每个城市内部，详情抓取与单 AI Worker 并行；AI较慢时完整 JD 留在 SQLite 等待处理。
+3. 多城市按顺序访问 BOSS。每个 Strategy 城市每次只抓一页列表，随后逐个抓完该页详情并完成 AI 判断，再决定是否请求下一页；BOSS 列表与详情始终串行，只有详情抓取与单 AI Worker 可以重叠。恢复时先清理 SQLite 中已有的详情和 AI 积压。
 4. AI只能依据用户确认目标和完整 JD 判断：匹配、待人工确认或不相关。不得扩大目标。
 5. 单次 Run 共用 500 次 BOSS 逻辑请求；第 500 次允许，第 501 次在网络操作前停止。每个城市固定最多 15 页 / 450 个列表候选。
 6. 每个正常收口的 Run 都生成独立累计 Excel，不必等待全部城市完成；SQLite 先冻结当轮合格行和待复核行，补导出不会吸收后续 Run 的数据。

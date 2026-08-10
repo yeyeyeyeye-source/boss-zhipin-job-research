@@ -1,11 +1,11 @@
-# BOSS直聘爬虫 · 职位抓取工具 v2.6（Chrome CDP / Codex Skill）
+# BOSS直聘爬虫 · 职位抓取工具 v2.7（Chrome CDP / Codex Skill）
 
 > 🌐 English documentation: [README.en.md](./README.en.md)
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.6.0-orange.svg)
+![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
 一个轻量的 **BOSS直聘爬虫（spider / crawler / scraper）**：通过 Chrome DevTools Protocol 连接本地已登录的专用 Chrome，复用真实登录态调用 zhipin.com 搜索 API。既保留原有 JSON / CSV CLI，也提供 SQLite 断点续跑、AI 结构化解析、Excel 导出和 Streamlit 本地任务面板。
 
@@ -48,7 +48,7 @@ uv run python scripts/job_summary.py
 
 抓完直接拿到：薪资分布、经验要求、高频技能词、求职材料优化提示词。提示词只基于岗位数据，不读取本地简历文件，也不给岗位算个人匹配分。
 
-## Codex Skill 多轮深度检索（v2.6）
+## Codex Skill 多轮深度检索（v2.7）
 
 这是 Codex Skill 的确定性执行路径；原 JSON/CSV CLI 与 Streamlit 用法保持不变。策略身份由规范化后的检索词、目标岗位与类型、城市集合和筛选条件共同确定，城市输入顺序只决定调度顺序。每个城市固定最多扫描 15 页、保存 450 个列表候选；一次明确执行的 full Run 在所有城市之间共用 500 次可控 BOSS 逻辑操作（登录探测、列表 WAPI、详情导航）。500 是本地安全预算，不是 BOSS 官方安全阈值，也不能用来规避平台限制。
 
@@ -71,6 +71,8 @@ python -m boss_app.cli export --run-id <RUN_ID>
 
 跨 Run 使用全局岗位目录按平台岗位 ID、规范化链接去重；完整 JD 全局复用，AI 判断按策略保存。每个受控收口的 Run 都冻结“截至本 Run”的合格行和待复核行，并生成独立 `RunNNN` 累计 Excel，即使城市尚未全部完成也会产出；后续补导出读取冻结快照，不会把 Run002 的数据混入 Run001。相同且已完成的策略默认零 BOSS 请求返回最新文件，只有 `--refresh` 才创建新 Cycle；`--ai-only` 不执行 BOSS 操作，`export` 不创建 Run。
 
+Strategy 任务采用单页流水线：每次只获取一页列表，先将该页候选逐个抓取完整 JD 并完成 AI 判断，再决定是否请求下一页。BOSS 列表与详情始终串行，详情抓取期间仅允许现有单 AI Worker 与其重叠。恢复任务会先清理 SQLite 中已保存的详情和 AI 积压，不会先扩充新列表。
+
 `--refresh` 只用于已经完成的 Cycle；若当前 Cycle 或崩溃遗留 Run 尚未收口，必须先按原模式续跑，不能借刷新跳过断点。`--ai-only` 不会接管运行中的 full Run，也不会解除此前的访问限制确认门。
 
 命中 `code: 37`、HTTP 403/429 或明确访问限制时立即停止并保存断点，且不会自动重试。再次 full Run 前必须由用户确认平台访问已恢复并传入 `--confirm-access-restored`；项目不提供代理、多账号、验证码破解或请求指纹绕过。
@@ -79,7 +81,7 @@ python -m boss_app.cli export --run-id <RUN_ID>
 
 GitHub 仓库只保存程序和数据库结构，不包含用户的数据库、岗位结果、日志、密钥或 Chrome 登录状态。同一台电脑上的新 checkout 默认继续使用 `~/.boss-zhipin-scraper/boss_jobs.db`；在另一台电脑首次运行时，程序会创建一份新的空数据库并初始化表结构。
 
-不要复制或提交 `.venv`。请使用 `uv sync --locked` 根据 `uv.lock` 重建环境。目录职责、备份与恢复方法见 [本地运行数据](docs/runtime-data.md)，当前 v2.6 数据流见 [架构说明](docs/architecture.md)。
+不要复制或提交 `.venv`。请使用 `uv sync --locked` 根据 `uv.lock` 重建环境。目录职责、备份与恢复方法见 [本地运行数据](docs/runtime-data.md)，当前 v2.7 数据流见 [架构说明](docs/architecture.md)。
 
 ## 本地 Streamlit 岗位采集程序
 
@@ -140,7 +142,7 @@ Copy-Item .env.example .env
 
 ### 完整项目（推荐）
 
-v2.6 的 Skill 入口依赖 `boss_app/`、`scripts/`、`data/` 和项目依赖，不能只下载 `SKILL.md` 或单个脚本。请克隆完整仓库：
+v2.7 的 Skill 入口依赖 `boss_app/`、`scripts/`、`data/` 和项目依赖，不能只下载 `SKILL.md` 或单个脚本。请克隆完整仓库：
 
 ```bash
 git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git

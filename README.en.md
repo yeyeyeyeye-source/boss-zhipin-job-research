@@ -1,11 +1,11 @@
-# BOSS Zhipin Scraper · Job Collector v2.6 (Chrome CDP / Codex Skill)
+# BOSS Zhipin Scraper · Job Collector v2.7 (Chrome CDP / Codex Skill)
 
 > 🌐 中文文档：[README.md](./README.md)
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.6.0-orange.svg)
+![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
 A lightweight **BOSS Zhipin scraper / crawler** for [zhipin.com](https://www.zhipin.com). It connects to a dedicated, locally logged-in Chrome over CDP and calls the in-page search API. The current release keeps the original JSON / CSV CLI and adds resumable SQLite tasks, AI-assisted full-JD review, qualified-job Excel export, and a local Streamlit task UI.
 
@@ -46,7 +46,7 @@ uv run python scripts/job_summary.py
 
 Right after scraping you get: salary ranges, experience requirements, top skill keywords, and a job-application optimization prompt. The prompt is based solely on the scraped job data — it never reads your local résumé file and never scores personal-job match.
 
-## Codex Skill Multi-Run Deep Search (v2.6)
+## Codex Skill Multi-Run Deep Search (v2.7)
 
 This is the deterministic Codex Skill execution path; the legacy JSON/CSV CLI and Streamlit workflows remain available. A strategy is identified by its normalized keyword, target role/type, city set, and filters, while city input order controls scheduling only. Each city scans at most 15 pages / 450 list candidates. One explicitly started full Run shares 500 controllable BOSS logical operations across all cities (login probes, list WAPI calls, and detail navigations). This is a local safety budget—not an official BOSS risk threshold or a restriction-bypass mechanism.
 
@@ -69,6 +69,8 @@ python -m boss_app.cli export --run-id <RUN_ID>
 
 Across Runs, a global catalog deduplicates jobs by platform ID and normalized URL. Full JDs are reused globally, while AI decisions remain strategy-scoped. Every controlled Run freezes its qualified/review projection and produces an independent cumulative `RunNNN` workbook even when some cities remain unfinished. Re-export reads that frozen projection, so Run002 can never change Run001. Re-running an identical completed strategy returns its latest workbook with zero BOSS requests; only `--refresh` starts a new Cycle. `--ai-only` performs no BOSS operation, and `export` creates no Run.
 
+Strategy tasks use a single-page pipeline: fetch one list page, process that page's full JDs and AI decisions, and only then decide whether another page is needed. BOSS list and detail operations remain serial; only the existing single AI worker may overlap with detail collection. A resumed task drains saved detail and AI backlog before expanding the list.
+
 `--refresh` is only valid after the current Cycle has completed. An unfinished Cycle or crash-resumable Run must first continue in its original mode, so refresh cannot skip saved checkpoints. `--ai-only` never takes over a running full Run and never clears an earlier access-restoration gate.
 
 `code: 37`, HTTP 403/429, or an explicit access restriction stops the Run immediately and saves its checkpoints. A later full Run requires the user to confirm access has recovered with `--confirm-access-restored`; there is no automatic retry, proxy, multi-account, CAPTCHA-breaking, or fingerprint-bypass path.
@@ -77,7 +79,7 @@ Across Runs, a global catalog deduplicates jobs by platform ID and normalized UR
 
 The GitHub repository contains the application and database schema, not a user's database, job results, logs, secrets, or Chrome login state. A new checkout on the same computer continues to use `~/.boss-zhipin-scraper/boss_jobs.db` by default. On another computer, the application creates a new empty database and initializes its schema on first use.
 
-Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`. See [Local runtime data](docs/runtime-data.md) for storage, backup, and restore boundaries, and [Architecture](docs/architecture.md) for the current v2.6 data flow.
+Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`. See [Local runtime data](docs/runtime-data.md) for storage, backup, and restore boundaries, and [Architecture](docs/architecture.md) for the current v2.7 data flow.
 
 ## Local Streamlit Job Collector
 
@@ -138,7 +140,7 @@ For candidates already inserted into the same task from a trusted offline source
 
 ### Complete project (recommended)
 
-The v2.6 Skill entry point depends on `boss_app/`, `scripts/`, `data/`, and the project dependencies. Downloading only `SKILL.md` or individual scripts is not sufficient. Clone the complete repository:
+The v2.7 Skill entry point depends on `boss_app/`, `scripts/`, `data/`, and the project dependencies. Downloading only `SKILL.md` or individual scripts is not sufficient. Clone the complete repository:
 
 ```bash
 git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git

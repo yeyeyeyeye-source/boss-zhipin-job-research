@@ -4,8 +4,8 @@
 
 1. A confirmed CLI request becomes an immutable Strategy identity.
 2. `StrategyRunner` creates or resumes a Cycle and a Run with one persistent 500-request budget.
-3. Cities run sequentially. The collector writes list candidates into SQLite with platform-ID and normalized-URL deduplication.
-4. Detail navigation stays serial. A single AI worker thread consumes validated complete JDs while the collector can fetch the next detail.
+3. Cities run sequentially. Each Strategy city fetches one list page, writes its candidates into SQLite with platform-ID and normalized-URL deduplication, and drains that page before requesting another.
+4. List and detail BOSS operations stay serial. A single AI worker thread consumes validated complete JDs while the collector can fetch the next detail.
 5. AI output is strategy-scoped and must pass strict JSON validation. Low-confidence roles may enter `manual_review`.
 6. Every controlled Run close freezes qualified and review rows before atomically publishing a Run-specific workbook.
 
