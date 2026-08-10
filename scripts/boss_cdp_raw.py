@@ -1579,11 +1579,18 @@ def scrape_list(keyword, city_input, max_pages, filters, output_path,
                 cdp_port=DEFAULT_CDP_PORT, fmt="json", allow_dom_fallback=False,
                 max_jobs=None, on_job=None, should_stop=None, raise_errors=False,
                 existing_keys=None, start_page=1, on_page_complete=None,
-                request_budget=None):
+                request_budget=None, page_limit=None):
     city_name, city_code = resolve_city(
         city_input, request_budget=request_budget,
     )
     start_page = max(1, int(start_page or 1))
+    max_pages = max(1, int(max_pages))
+    last_page = max_pages
+    if page_limit is not None:
+        last_page = min(
+            max_pages,
+            start_page + max(1, int(page_limit)) - 1,
+        )
     cdp = CDPSession(cdp_port)
     all_jobs = []
     seen = set(existing_keys or ())
@@ -1651,7 +1658,7 @@ def scrape_list(keyword, city_input, max_pages, filters, output_path,
             }, sid)
 
     try:
-        for pg in range(start_page, max_pages + 1):
+        for pg in range(start_page, last_page + 1):
             if should_stop and should_stop():
                 print("任务已请求暂停")
                 break
@@ -1733,7 +1740,7 @@ def scrape_list(keyword, city_input, max_pages, filters, output_path,
             if (max_jobs and len(all_jobs) >= max_jobs) or (should_stop and should_stop()):
                 break
 
-            if pg < max_pages:
+            if pg < last_page:
                 d = random.uniform(12, 22)
                 print(f"  翻页等待 {d:.0f}s...\n")
                 time.sleep(d)
