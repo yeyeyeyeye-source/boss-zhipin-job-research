@@ -599,6 +599,7 @@ class ChromeSetupTests(unittest.TestCase):
 
         self.assertNotIn("jd = body.substring", module.EXTRACT_DETAIL_JS)
         self.assertIn("page_text", module.EXTRACT_DETAIL_JS)
+        self.assertIn("restriction_text", module.EXTRACT_DETAIL_JS)
         self.assertIn("text.indexOf('职位描述')", module.EXTRACT_DETAIL_JS)
 
     def test_extract_job_description_removes_header_and_recruiter_footer(self):
@@ -703,6 +704,7 @@ class ChromeSetupTests(unittest.TestCase):
                 {
                     "jd": raw_jd,
                     "page_text": raw_jd,
+                    "restriction_text": "访问频繁，请完成安全校验后重试",
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
             )
@@ -750,9 +752,53 @@ class ChromeSetupTests(unittest.TestCase):
                 {
                     "jd": raw_jd,
                     "page_text": f"{raw_jd}\n请完成验证后重试",
+                    "restriction_text": "请完成验证后重试",
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
             )
+
+    def test_extract_detail_fields_rejects_split_restriction_message(self):
+        module = load_module()
+
+        with self.assertRaises(module.AccessRestrictedError):
+            module.extract_detail_fields(
+                {
+                    "jd": "",
+                    "page_text": "访问\n频繁，请完成\n验证后重试",
+                    "url": "https://www.zhipin.com/job_detail/example.html",
+                }
+            )
+
+    def test_extract_detail_fields_rejects_slider_verification_context(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        with self.assertRaises(module.AccessRestrictedError):
+            module.extract_detail_fields(
+                {
+                    "jd": raw_jd,
+                    "page_text": raw_jd,
+                    "restriction_text": "安全验证\n请按住滑块，拖动到最右边",
+                    "url": "https://www.zhipin.com/job_detail/example.html",
+                }
+            )
+
+    def test_extract_detail_fields_accepts_slider_interaction_business_jd(self):
+        module = load_module()
+        description = "负责设计拖动滑块交互功能和产品需求分析。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": raw_jd,
+                "restriction_text": "",
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertIn("拖动滑块交互功能", fields["jd"])
 
     def test_extract_job_description_preserves_competitiveness_heading_in_jd(self):
         module = load_module()
