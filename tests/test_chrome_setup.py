@@ -599,7 +599,10 @@ class ChromeSetupTests(unittest.TestCase):
 
         self.assertNotIn("jd = body.substring", module.EXTRACT_DETAIL_JS)
         self.assertIn("page_text", module.EXTRACT_DETAIL_JS)
-        self.assertIn("restriction_text", module.EXTRACT_DETAIL_JS)
+        self.assertIn("status_candidates", module.EXTRACT_DETAIL_JS)
+        self.assertIn("getBoundingClientRect", module.EXTRACT_DETAIL_JS)
+        self.assertIn("job-sec-text", module.EXTRACT_DETAIL_JS)
+        self.assertNotIn("restrictionSelectors", module.EXTRACT_DETAIL_JS)
         self.assertIn("text.indexOf('职位描述')", module.EXTRACT_DETAIL_JS)
 
     def test_extract_job_description_removes_header_and_recruiter_footer(self):
@@ -704,7 +707,7 @@ class ChromeSetupTests(unittest.TestCase):
                 {
                     "jd": raw_jd,
                     "page_text": raw_jd,
-                    "restriction_text": "访问频繁，请完成安全校验后重试",
+                    "status_candidates": ["访问频繁，请完成安全校验后重试"],
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
             )
@@ -752,7 +755,7 @@ class ChromeSetupTests(unittest.TestCase):
                 {
                     "jd": raw_jd,
                     "page_text": f"{raw_jd}\n请完成验证后重试",
-                    "restriction_text": "请完成验证后重试",
+                    "status_candidates": ["请完成验证后重试"],
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
             )
@@ -779,7 +782,7 @@ class ChromeSetupTests(unittest.TestCase):
                 {
                     "jd": raw_jd,
                     "page_text": raw_jd,
-                    "restriction_text": "安全验证\n请按住滑块，拖动到最右边",
+                    "status_candidates": ["安全验证\n请按住滑块，拖动到最右边"],
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
             )
@@ -793,12 +796,44 @@ class ChromeSetupTests(unittest.TestCase):
             {
                 "jd": raw_jd,
                 "page_text": raw_jd,
-                "restriction_text": "",
+                "status_candidates": [],
                 "url": "https://www.zhipin.com/job_detail/example.html",
             }
         )
 
         self.assertIn("拖动滑块交互功能", fields["jd"])
+
+    def test_extract_detail_fields_does_not_combine_unrelated_status_candidates(self):
+        module = load_module()
+
+        with self.assertRaises(module.DetailExtractionError):
+            module.extract_detail_fields(
+                {
+                    "jd": "",
+                    "page_text": "请查看以下推荐职位\n推荐职位：安全校验产品经理",
+                    "status_candidates": [
+                        "请查看以下推荐职位",
+                        "推荐职位：安全校验产品经理",
+                    ],
+                    "url": "https://www.zhipin.com/job_detail/example.html",
+                }
+            )
+
+    def test_extract_detail_fields_accepts_generic_business_status_candidate(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": raw_jd,
+                "status_candidates": ["身份验证产品经理\n岗位需要跨团队协作"],
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertEqual(fields["jd"], description.strip())
 
     def test_extract_job_description_preserves_competitiveness_heading_in_jd(self):
         module = load_module()
