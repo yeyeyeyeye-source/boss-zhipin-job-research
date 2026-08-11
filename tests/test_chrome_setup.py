@@ -643,6 +643,53 @@ class ChromeSetupTests(unittest.TestCase):
                 }
             )
 
+    def test_extract_detail_fields_accepts_valid_jd_on_security_check_url(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": f"职位描述\n{description}",
+                "page_text": f"职位描述\n{description}BOSS 安全提示",
+                "url": (
+                    "https://www.zhipin.com/job_detail/example.html"
+                    "?_security_check=1"
+                ),
+            }
+        )
+
+        self.assertEqual(fields["jd"], description.strip())
+
+    def test_extract_detail_fields_ignores_restriction_words_inside_valid_jd(self):
+        module = load_module()
+        description = "负责滑块组件、身份验证和安全校验产品能力建设。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": f"岗位标题\n{raw_jd}\nBOSS 安全提示",
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertIn("安全校验产品能力", fields["jd"])
+
+    def test_extract_detail_fields_treats_url_marker_without_jd_as_extraction_error(self):
+        module = load_module()
+
+        with self.assertRaises(module.DetailExtractionError):
+            module.extract_detail_fields(
+                {
+                    "jd": "",
+                    "page_text": "普通岗位详情页面",
+                    "url": (
+                        "https://www.zhipin.com/job_detail/example.html"
+                        "?_security_check=1"
+                    ),
+                }
+            )
+
     def test_extract_job_description_preserves_competitiveness_heading_in_jd(self):
         module = load_module()
         description = (
