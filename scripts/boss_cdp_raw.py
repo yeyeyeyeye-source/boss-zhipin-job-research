@@ -719,14 +719,14 @@ def extract_detail_fields(extracted, min_length=MIN_DETAIL_TEXT_LENGTH):
     page_text = str(extracted.get("page_text") or "")
     extracted_url = str(extracted.get("url") or "")
     diagnostic_text = "\n".join((raw_jd, page_text, extracted_url))
+    restriction_page_text = page_text.replace(raw_jd, "", 1) if raw_jd else page_text
 
     detail_restriction_keywords = tuple(
         keyword for keyword in LOGIN_RESTRICTED_MESSAGE_KEYWORDS if keyword != "验证"
     )
     if (
-        any(keyword in diagnostic_text for keyword in detail_restriction_keywords)
-        or "_security_check" in extracted_url
-        or ("验证" in page_text and len(raw_jd.strip()) < min_length)
+        any(keyword in restriction_page_text for keyword in detail_restriction_keywords)
+        or ("验证" in restriction_page_text and len(raw_jd.strip()) < min_length)
     ):
         raise AccessRestrictedError("detail page reports access restriction")
 
