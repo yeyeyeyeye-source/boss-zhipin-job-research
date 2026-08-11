@@ -155,10 +155,11 @@ DETAIL_RESTRICTED_MESSAGE_PHRASES = (
     "环境存在异常",
     "访问频繁",
     "操作太频繁",
-    "请完成验证",
-    "完成验证后重试",
-    "请完成安全校验",
-    "拖动滑块",
+)
+DETAIL_RESTRICTED_CONTEXT_PATTERNS = (
+    r"(?:请|需要|必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)",
+    r"(?:请|需要|必须)(?:先)?(?:按住|拖动).{0,8}滑块",
+    r"(?:验证码|安全验证|安全校验|滑块验证).{0,12}(?:重试|继续访问|继续操作)",
 )
 DEFAULT_LOGIN_TIMEOUT = 300
 
@@ -599,29 +600,48 @@ EXTRACT_DETAIL_JS = """
         }
         return '';
     }
+    var jdSection = null;
     var sections = document.querySelectorAll('.job-detail-section, .job-sec');
     for (var i = 0; i < sections.length; i++) {
         var text = (sections[i].innerText || '').trim();
         if (text.indexOf('职位描述') !== -1 && text.length > jd.length) {
             jd = text;
+            jdSection = sections[i];
         }
     }
-    var restrictionTexts = [];
-    var restrictionSelectors = [
-        '[class*="security"]', '[class*="verify"]', '[class*="captcha"]',
-        '[class*="slider"]', '[id*="security"]', '[id*="verify"]',
-        '[id*="captcha"]', '[id*="slider"]'
-    ];
-    document.querySelectorAll(restrictionSelectors.join(',')).forEach(function(el){
+    var jdBoundary = jdSection ? (jdSection.querySelector('.job-sec-text') || jdSection) : null;
+    var statusCandidates = [];
+    function isVisible(el) {
+        var style = window.getComputedStyle(el);
+        var rect = el.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            style.opacity !== '0' && rect.width > 0 && rect.height > 0;
+    }
+    function overlapsJd(el) {
+        return jdBoundary && (el === jdBoundary || jdBoundary.contains(el) ||
+            el.contains(jdBoundary));
+    }
+    var statusSelector = [
+        'body div', 'body section', 'body form', 'body p', 'body li',
+        'body h1', 'body h2', 'body h3', 'body aside', 'body article',
+        'body iframe'
+    ].join(',');
+    document.querySelectorAll(statusSelector).forEach(function(el){
+        if (overlapsJd(el) || !isVisible(el)) return;
         var value = (el.innerText || '').trim();
-        if (value && restrictionTexts.indexOf(value) === -1) {
-            restrictionTexts.push(value);
+        if (el.tagName === 'IFRAME') {
+            value = [el.getAttribute('title') || '', el.getAttribute('src') || '']
+                .join(' ').trim();
+        }
+        if (value.length >= 2 && value.length <= 600 &&
+                statusCandidates.indexOf(value) === -1) {
+            statusCandidates.push(value);
         }
     });
     return JSON.stringify({
         jd: jd,
         page_text: pageText.substring(0, 12000),
-        restriction_text: restrictionTexts.join('\n').substring(0, 4000),
+        status_candidates: statusCandidates,
         tags: tags,
         title: firstText(['.job-banner .name', '.job-primary .name', 'h1']),
         location: firstText(['.job-banner .job-location', '.location-address', '.job-address']),
@@ -643,11 +663,9 @@ def _looks_like_detail_access_restriction(text):
     normalized = re.sub(r"\s+", "", str(text or ""))
     if any(phrase in normalized for phrase in DETAIL_RESTRICTED_MESSAGE_PHRASES):
         return True
-    verification_terms = ("验证码", "验证", "安全校验", "滑块")
-    restriction_cues = ("请", "需要", "必须", "重试", "继续访问", "按住", "拖动", "最右边")
-    return (
-        any(term in normalized for term in verification_terms)
-        and any(cue in normalized for cue in restriction_cues)
+    return any(
+        re.search(pattern, normalized)
+        for pattern in DETAIL_RESTRICTED_CONTEXT_PATTERNS
     )
 
 
@@ -751,13 +769,21 @@ def extract_detail_fields(extracted, min_length=MIN_DETAIL_TEXT_LENGTH):
 
     raw_jd = str(extracted.get("jd") or "")
     page_text = str(extracted.get("page_text") or "")
-    restriction_text = str(extracted.get("restriction_text") or "")
     extracted_url = str(extracted.get("url") or "")
     diagnostic_text = "\n".join((raw_jd, page_text, extracted_url))
 
-    if not raw_jd.strip():
-        restriction_text = "\n".join((restriction_text, page_text))
-    if _looks_like_detail_access_restriction(restriction_text):
+    if "status_candidates" in extracted:
+        candidates = extracted.get("status_candidates")
+        status_candidates = candidates if isinstance(candidates, list) else []
+    else:
+        legacy_text = str(extracted.get("restriction_text") or "")
+        if not legacy_text and not raw_jd.strip():
+            legacy_text = page_text
+        status_candidates = [legacy_text] if legacy_text else []
+    if any(
+        _looks_like_detail_access_restriction(candidate)
+        for candidate in status_candidates
+    ):
         raise AccessRestrictedError("detail page reports access restriction")
 
     if DETAIL_LOGIN_MARKER in diagnostic_text:
