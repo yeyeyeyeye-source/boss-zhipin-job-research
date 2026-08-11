@@ -690,6 +690,70 @@ class ChromeSetupTests(unittest.TestCase):
                 }
             )
 
+    def test_extract_detail_fields_rejects_explicit_restriction_inside_jd_container(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = (
+            f"职位描述\n{description}"
+            "访问频繁，请完成安全校验后重试"
+        )
+
+        with self.assertRaises(module.AccessRestrictedError):
+            module.extract_detail_fields(
+                {
+                    "jd": raw_jd,
+                    "page_text": raw_jd,
+                    "url": "https://www.zhipin.com/job_detail/example.html",
+                }
+            )
+
+    def test_extract_detail_fields_ignores_business_words_outside_jd(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": f"{raw_jd}\n推荐职位：安全校验产品经理",
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertEqual(fields["jd"], description.strip())
+
+    def test_extract_detail_fields_accepts_long_jd_with_business_words(self):
+        module = load_module()
+        description = "负责安全校验产品能力建设和产品需求分析。\n" * 600
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": raw_jd[:12000],
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertIn("安全校验产品能力", fields["jd"])
+
+    def test_extract_detail_fields_rejects_verification_when_clean_jd_is_short(self):
+        module = load_module()
+        raw_jd = (
+            "职位描述\n短正文\n"
+            "李女士\n在线\n示例公司\n·\n招聘专员\n"
+            + "招聘者卡片补充信息\n" * 20
+        )
+
+        with self.assertRaises(module.AccessRestrictedError):
+            module.extract_detail_fields(
+                {
+                    "jd": raw_jd,
+                    "page_text": f"{raw_jd}\n请完成验证后重试",
+                    "url": "https://www.zhipin.com/job_detail/example.html",
+                }
+            )
+
     def test_extract_job_description_preserves_competitiveness_heading_in_jd(self):
         module = load_module()
         description = (
