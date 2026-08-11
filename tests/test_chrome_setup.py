@@ -612,6 +612,13 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertIn("parseFloat", module.EXTRACT_DETAIL_JS)
         self.assertIn("'body'", module.EXTRACT_DETAIL_JS)
         self.assertIn("isOverlay(el) ?", module.EXTRACT_DETAIL_JS)
+        self.assertIn("el.tagName === 'DIALOG'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("style.position === 'absolute'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("parseInt(style.zIndex", module.EXTRACT_DETAIL_JS)
+        self.assertIn("'body main'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("'body dialog'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("'body button'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("'body a'", module.EXTRACT_DETAIL_JS)
         self.assertNotIn("restrictionSelectors", module.EXTRACT_DETAIL_JS)
         self.assertIn("text.indexOf('职位描述')", module.EXTRACT_DETAIL_JS)
 
@@ -876,6 +883,42 @@ class ChromeSetupTests(unittest.TestCase):
         )
 
         self.assertEqual(fields["jd"], description.strip())
+
+    def test_extract_detail_fields_accepts_user_security_validation_business_copy(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": raw_jd,
+                "status_candidates": ["用户需要完成安全校验"],
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertEqual(fields["jd"], description.strip())
+
+    def test_extract_detail_fields_rejects_punctuated_restriction_messages(self):
+        module = load_module()
+
+        for message in (
+            "您的环境存在异常.",
+            "您的环境存在异常，请稍后重试",
+            "访问频繁，请稍后再试",
+            "操作太频繁，请稍后再试",
+        ):
+            with self.subTest(message=message):
+                with self.assertRaises(module.AccessRestrictedError):
+                    module.extract_detail_fields(
+                        {
+                            "jd": "",
+                            "page_text": message,
+                            "status_candidates": [message],
+                            "url": "https://www.zhipin.com/job_detail/example.html",
+                        }
+                    )
 
     def test_extract_detail_fields_rejects_visible_captcha_iframe_metadata(self):
         module = load_module()

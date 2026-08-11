@@ -152,13 +152,13 @@ LOGIN_RESTRICTED_MESSAGE_KEYWORDS = (
     "验证",
 )
 DETAIL_RESTRICTED_MESSAGE_PATTERNS = (
-    r"^(?:(?:系统)?检测到)?(?:您的|当前)?环境存在异常(?:请.*|$)",
-    r"^(?:(?:系统)?检测到)?(?:您的|当前)?访问频繁(?:请.*|$)",
-    r"^(?:(?:系统)?检测到)?(?:您的|当前)?操作太频繁(?:请.*|$)",
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?环境存在异常(?:[，,。.!！:：]*(?:请.*)?)?$",
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?访问频繁(?:[，,。.!！:：]*(?:请.*)?)?$",
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?操作太频繁(?:[，,。.!！:：]*(?:请.*)?)?$",
 )
 DETAIL_RESTRICTED_CONTEXT_PATTERNS = (
-    r"(?:请|需要|必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)(?:后)?(?:重试|继续访问|继续操作|访问|操作|$)",
-    r"(?:请|需要|必须)(?:先)?(?:按住|拖动).{0,8}滑块",
+    r"^(?:请|需要|必须|您需要|您必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)(?:后)?(?:重试|继续访问|继续操作|访问|操作|$)",
+    r"^(?:(?:安全|滑块)验证)?(?:请|需要|必须|您需要|您必须)(?:先)?(?:按住|拖动).{0,8}滑块",
     r"(?:验证码|安全验证|安全校验|滑块验证).{0,12}(?:重试|继续访问|继续操作)",
 )
 DETAIL_RESTRICTED_IFRAME_PATTERNS = (
@@ -634,7 +634,10 @@ EXTRACT_DETAIL_JS = """
     function isOverlay(el) {
         var style = window.getComputedStyle(el);
         var role = (el.getAttribute('role') || '').toLowerCase();
+        var zIndex = parseInt(style.zIndex || '', 10);
         return style.position === 'fixed' || style.position === 'sticky' ||
+            el.tagName === 'DIALOG' ||
+            (style.position === 'absolute' && !isNaN(zIndex) && zIndex >= 100) ||
             role === 'dialog' || role === 'alertdialog' ||
             el.getAttribute('aria-modal') === 'true';
     }
@@ -646,7 +649,7 @@ EXTRACT_DETAIL_JS = """
     var statusSelector = [
         'body', 'body div', 'body section', 'body form', 'body p', 'body li',
         'body h1', 'body h2', 'body h3', 'body aside', 'body article',
-        'body iframe'
+        'body main', 'body dialog', 'body button', 'body a', 'body iframe'
     ].join(',');
     function hasVisibleBlockDescendant(el) {
         return Array.prototype.some.call(el.querySelectorAll(statusSelector), function(child){
