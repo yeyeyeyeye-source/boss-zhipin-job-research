@@ -151,6 +151,15 @@ LOGIN_RESTRICTED_MESSAGE_KEYWORDS = (
     "滑块",
     "验证",
 )
+DETAIL_RESTRICTED_MESSAGE_PHRASES = (
+    "环境存在异常",
+    "访问频繁",
+    "操作太频繁",
+    "请完成验证",
+    "完成验证后重试",
+    "请完成安全校验",
+    "拖动滑块",
+)
 DEFAULT_LOGIN_TIMEOUT = 300
 
 
@@ -719,14 +728,9 @@ def extract_detail_fields(extracted, min_length=MIN_DETAIL_TEXT_LENGTH):
     page_text = str(extracted.get("page_text") or "")
     extracted_url = str(extracted.get("url") or "")
     diagnostic_text = "\n".join((raw_jd, page_text, extracted_url))
-    restriction_page_text = page_text.replace(raw_jd, "", 1) if raw_jd else page_text
 
-    detail_restriction_keywords = tuple(
-        keyword for keyword in LOGIN_RESTRICTED_MESSAGE_KEYWORDS if keyword != "验证"
-    )
-    if (
-        any(keyword in restriction_page_text for keyword in detail_restriction_keywords)
-        or ("验证" in restriction_page_text and len(raw_jd.strip()) < min_length)
+    if any(
+        phrase in diagnostic_text for phrase in DETAIL_RESTRICTED_MESSAGE_PHRASES
     ):
         raise AccessRestrictedError("detail page reports access restriction")
 
