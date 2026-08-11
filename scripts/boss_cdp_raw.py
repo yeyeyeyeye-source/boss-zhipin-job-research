@@ -660,13 +660,15 @@ EXTRACT_DETAIL_JS = """
     }
     document.querySelectorAll(statusSelector).forEach(function(el){
         if (overlapsJd(el) || !isVisible(el)) return;
-        var value = ((jdBoundary && el.contains(jdBoundary)) ||
+        var value = isOverlay(el) ? (el.innerText || '').trim() :
+            (((jdBoundary && el.contains(jdBoundary)) ||
                 hasVisibleBlockDescendant(el)) ? directText(el) :
-            (el.innerText || '').trim();
+                (el.innerText || '').trim());
         if (el.tagName === 'IFRAME') {
             value = '[iframe] ' +
                 [el.getAttribute('title') || '', el.getAttribute('src') || '']
                     .join(' ').trim();
+            value = value.substring(0, 600);
         }
         if (value.length >= 2 && value.length <= 600 &&
                 statusCandidates.indexOf(value) === -1) {

@@ -605,11 +605,13 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertIn("isOverlay", module.EXTRACT_DETAIL_JS)
         self.assertIn("aria-modal", module.EXTRACT_DETAIL_JS)
         self.assertIn("[iframe]", module.EXTRACT_DETAIL_JS)
+        self.assertIn("substring(0, 600)", module.EXTRACT_DETAIL_JS)
         self.assertIn("childNodes", module.EXTRACT_DETAIL_JS)
         self.assertIn("Node.TEXT_NODE", module.EXTRACT_DETAIL_JS)
         self.assertIn("parentElement", module.EXTRACT_DETAIL_JS)
         self.assertIn("parseFloat", module.EXTRACT_DETAIL_JS)
         self.assertIn("'body'", module.EXTRACT_DETAIL_JS)
+        self.assertIn("isOverlay(el) ?", module.EXTRACT_DETAIL_JS)
         self.assertNotIn("restrictionSelectors", module.EXTRACT_DETAIL_JS)
         self.assertIn("text.indexOf('职位描述')", module.EXTRACT_DETAIL_JS)
 
@@ -887,7 +889,7 @@ class ChromeSetupTests(unittest.TestCase):
                     "page_text": raw_jd,
                     "status_candidates": [
                         "[iframe] Security challenge "
-                        "https://static.geetest.com/challenge"
+                        "https://static.geetest.com/challenge?token=" + "x" * 700
                     ],
                     "url": "https://www.zhipin.com/job_detail/example.html",
                 }
