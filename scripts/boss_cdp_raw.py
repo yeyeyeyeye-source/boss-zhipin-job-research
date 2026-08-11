@@ -151,15 +151,23 @@ LOGIN_RESTRICTED_MESSAGE_KEYWORDS = (
     "滑块",
     "验证",
 )
-DETAIL_RESTRICTED_MESSAGE_PHRASES = (
-    "环境存在异常",
-    "访问频繁",
-    "操作太频繁",
+DETAIL_RESTRICTED_MESSAGE_PATTERNS = (
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?环境存在异常(?:请.*|$)",
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?访问频繁(?:请.*|$)",
+    r"^(?:(?:系统)?检测到)?(?:您的|当前)?操作太频繁(?:请.*|$)",
 )
 DETAIL_RESTRICTED_CONTEXT_PATTERNS = (
-    r"(?:请|需要|必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)",
+    r"(?:请|需要|必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)(?:后)?(?:重试|继续访问|继续操作|访问|操作|$)",
     r"(?:请|需要|必须)(?:先)?(?:按住|拖动).{0,8}滑块",
     r"(?:验证码|安全验证|安全校验|滑块验证).{0,12}(?:重试|继续访问|继续操作)",
+)
+DETAIL_RESTRICTED_IFRAME_PATTERNS = (
+    r"验证码",
+    r"captcha",
+    r"geetest",
+    r"yidun",
+    r"securitychallenge",
+    r"verificationchallenge",
 )
 DEFAULT_LOGIN_TIMEOUT = 300
 
@@ -612,26 +620,53 @@ EXTRACT_DETAIL_JS = """
     var jdBoundary = jdSection ? (jdSection.querySelector('.job-sec-text') || jdSection) : null;
     var statusCandidates = [];
     function isVisible(el) {
-        var style = window.getComputedStyle(el);
         var rect = el.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' &&
-            style.opacity !== '0' && rect.width > 0 && rect.height > 0;
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        var current = el;
+        while (current) {
+            var style = window.getComputedStyle(current);
+            if (style.display === 'none' || style.visibility === 'hidden' ||
+                    parseFloat(style.opacity || '1') === 0) return false;
+            current = current.parentElement;
+        }
+        return true;
+    }
+    function isOverlay(el) {
+        var style = window.getComputedStyle(el);
+        var role = (el.getAttribute('role') || '').toLowerCase();
+        return style.position === 'fixed' || style.position === 'sticky' ||
+            role === 'dialog' || role === 'alertdialog' ||
+            el.getAttribute('aria-modal') === 'true';
     }
     function overlapsJd(el) {
-        return jdBoundary && (el === jdBoundary || jdBoundary.contains(el) ||
-            el.contains(jdBoundary));
+        if (!jdBoundary) return false;
+        if (el === jdBoundary) return true;
+        return jdBoundary.contains(el) && !isOverlay(el);
     }
     var statusSelector = [
-        'body div', 'body section', 'body form', 'body p', 'body li',
+        'body', 'body div', 'body section', 'body form', 'body p', 'body li',
         'body h1', 'body h2', 'body h3', 'body aside', 'body article',
         'body iframe'
     ].join(',');
+    function hasVisibleBlockDescendant(el) {
+        return Array.prototype.some.call(el.querySelectorAll(statusSelector), function(child){
+            return !overlapsJd(child) && isVisible(child);
+        });
+    }
+    function directText(el) {
+        return Array.prototype.map.call(el.childNodes, function(node){
+            return node.nodeType === Node.TEXT_NODE ? (node.textContent || '') : '';
+        }).join(' ').trim();
+    }
     document.querySelectorAll(statusSelector).forEach(function(el){
         if (overlapsJd(el) || !isVisible(el)) return;
-        var value = (el.innerText || '').trim();
+        var value = ((jdBoundary && el.contains(jdBoundary)) ||
+                hasVisibleBlockDescendant(el)) ? directText(el) :
+            (el.innerText || '').trim();
         if (el.tagName === 'IFRAME') {
-            value = [el.getAttribute('title') || '', el.getAttribute('src') || '']
-                .join(' ').trim();
+            value = '[iframe] ' +
+                [el.getAttribute('title') || '', el.getAttribute('src') || '']
+                    .join(' ').trim();
         }
         if (value.length >= 2 && value.length <= 600 &&
                 statusCandidates.indexOf(value) === -1) {
@@ -661,7 +696,16 @@ def _normalize_detail_whitespace(text):
 
 def _looks_like_detail_access_restriction(text):
     normalized = re.sub(r"\s+", "", str(text or ""))
-    if any(phrase in normalized for phrase in DETAIL_RESTRICTED_MESSAGE_PHRASES):
+    normalized_lower = normalized.lower()
+    if normalized_lower.startswith("[iframe]") and any(
+        re.search(pattern, normalized_lower)
+        for pattern in DETAIL_RESTRICTED_IFRAME_PATTERNS
+    ):
+        return True
+    if any(
+        re.search(pattern, normalized)
+        for pattern in DETAIL_RESTRICTED_MESSAGE_PATTERNS
+    ):
         return True
     return any(
         re.search(pattern, normalized)
