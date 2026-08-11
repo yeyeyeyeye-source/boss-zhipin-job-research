@@ -159,7 +159,7 @@ DETAIL_RESTRICTED_MESSAGE_PATTERNS = (
 DETAIL_RESTRICTED_CONTEXT_PATTERNS = (
     r"^(?:请|需要|必须|您需要|您必须)(?:先)?(?:进行|完成|通过)?(?:安全|滑块)?(?:验证|校验)(?:后)?(?:重试|继续访问|继续操作|访问|操作|$)",
     r"^(?:(?:安全|滑块)验证)?(?:请|需要|必须|您需要|您必须)(?:先)?(?:按住|拖动).{0,8}滑块",
-    r"(?:验证码|安全验证|安全校验|滑块验证).{0,12}(?:重试|继续访问|继续操作)",
+    r"^(?:验证码|安全验证|安全校验|滑块验证).{0,12}(?:重试|继续访问|继续操作)",
 )
 DETAIL_RESTRICTED_IFRAME_PATTERNS = (
     r"验证码",
@@ -667,6 +667,7 @@ EXTRACT_DETAIL_JS = """
             (((jdBoundary && el.contains(jdBoundary)) ||
                 hasVisibleBlockDescendant(el)) ? directText(el) :
                 (el.innerText || '').trim());
+        if (isOverlay(el)) value = value.substring(0, 600);
         if (el.tagName === 'IFRAME') {
             value = '[iframe] ' +
                 [el.getAttribute('title') || '', el.getAttribute('src') || '']

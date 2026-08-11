@@ -76,7 +76,7 @@ Strategy tasks use a single-page pipeline: fetch one list page, process that pag
 `code: 37`, HTTP 403/429, or an explicit access restriction stops the Run immediately and saves its checkpoints. A later full Run requires the user to confirm access has recovered with `--confirm-access-restored`; there is no automatic retry, proxy, multi-account, CAPTCHA-breaking, or fingerprint-bypass path.
 
 Detail-page URL parameters are diagnostic only and do not establish an access restriction by themselves. A correctly identified job with a valid complete JD is accepted when no explicit restriction evidence is present; an ordinary missing-JD extraction failure is not mislabeled as an access restriction.
-Page-state evidence is evaluated one minimal visible text unit at a time outside the JD region, including explicit metadata from visible CAPTCHA iframes. It does not depend on CAPTCHA node class names or IDs, never combines parent/child or unrelated page regions, and does not treat hidden templates or ordinary business copy as restriction evidence.
+Page-state evidence is evaluated one minimal visible text unit at a time outside the JD region, including explicit metadata from visible CAPTCHA iframes. One explicit overlay is treated as a complete status unit; otherwise parent/child candidates and unrelated page regions are not combined. Detection does not depend on CAPTCHA node class names or IDs, and hidden templates or ordinary business copy are not restriction evidence.
 
 ## Local Data and Privacy
 

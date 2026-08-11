@@ -612,6 +612,7 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertIn("parseFloat", module.EXTRACT_DETAIL_JS)
         self.assertIn("'body'", module.EXTRACT_DETAIL_JS)
         self.assertIn("isOverlay(el) ?", module.EXTRACT_DETAIL_JS)
+        self.assertGreaterEqual(module.EXTRACT_DETAIL_JS.count("substring(0, 600)"), 2)
         self.assertIn("el.tagName === 'DIALOG'", module.EXTRACT_DETAIL_JS)
         self.assertIn("style.position === 'absolute'", module.EXTRACT_DETAIL_JS)
         self.assertIn("parseInt(style.zIndex", module.EXTRACT_DETAIL_JS)
@@ -894,6 +895,22 @@ class ChromeSetupTests(unittest.TestCase):
                 "jd": raw_jd,
                 "page_text": raw_jd,
                 "status_candidates": ["用户需要完成安全校验"],
+                "url": "https://www.zhipin.com/job_detail/example.html",
+            }
+        )
+
+        self.assertEqual(fields["jd"], description.strip())
+
+    def test_extract_detail_fields_accepts_security_validation_success_copy(self):
+        module = load_module()
+        description = "负责 AI 产品规划、需求分析和跨团队推进。\n" * 8
+        raw_jd = f"职位描述\n{description}"
+
+        fields = module.extract_detail_fields(
+            {
+                "jd": raw_jd,
+                "page_text": raw_jd,
+                "status_candidates": ["产品说明：安全校验成功后继续操作下一步"],
                 "url": "https://www.zhipin.com/job_detail/example.html",
             }
         )
