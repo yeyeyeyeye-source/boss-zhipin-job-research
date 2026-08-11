@@ -75,6 +75,8 @@ Strategy tasks use a single-page pipeline: fetch one list page, process that pag
 
 `code: 37`, HTTP 403/429, or an explicit access restriction stops the Run immediately and saves its checkpoints. A later full Run requires the user to confirm access has recovered with `--confirm-access-restored`; there is no automatic retry, proxy, multi-account, CAPTCHA-breaking, or fingerprint-bypass path.
 
+Detail-page URL parameters are diagnostic only and do not establish an access restriction by themselves. A correctly identified job with a valid complete JD is accepted when no explicit restriction evidence is present; an ordinary missing-JD extraction failure is not mislabeled as an access restriction.
+
 ## Local Data and Privacy
 
 The GitHub repository contains the application and database schema, not a user's database, job results, logs, secrets, or Chrome login state. A new checkout on the same computer continues to use `~/.boss-zhipin-scraper/boss_jobs.db` by default. On another computer, the application creates a new empty database and initializes its schema on first use.
@@ -103,7 +105,7 @@ City `AI产品运营` tasks send each saved full JD to one AI worker. Detail col
 
 The list API's city name is preferred and detail addresses cannot overwrite it, so districts, streets, business areas, and full addresses are not stored or exported for the nationwide task. Excel contains qualified jobs only and has exactly seven columns: job title, city, salary range, responsibilities, requirements, bonus points, and job URL. The three summary cells use numbered line breaks; missing bonus points render as `无`.
 
-Jobs are deduplicated per task by both `job_id` and a normalized job URL with its query, fragment, and trailing slash removed. On `code: 37`, HTTP 403/429, or an explicit access-restriction message, the worker immediately stops subsequent network steps, preserves progress, and sets `waiting_for_access`. The UI never retries this state automatically; after access recovers, the user explicitly chooses “恢复/继续任务”. Detail requests remain serial and use randomized delays configured by `BOSS_NETWORK_INTERVAL_MIN` / `BOSS_NETWORK_INTERVAL_MAX`.
+Jobs are deduplicated per task by both `job_id` and a normalized job URL with its query, fragment, and trailing slash removed. On `code: 37`, HTTP 403/429, or an explicit access-restriction message, the worker immediately stops subsequent network steps, preserves progress, and sets `waiting_for_access`. The UI never retries this state automatically; after access recovers, the user explicitly chooses “恢复/继续任务”. Unknown URL markers do not trigger that state by themselves; a correctly identified job with a valid complete JD continues normally when no explicit restriction evidence is present. Detail requests remain serial and use randomized delays configured by `BOSS_NETWORK_INTERVAL_MIN` / `BOSS_NETWORK_INTERVAL_MAX`.
 
 List tasks persist the next-page cursor only after a full page is durably processed. Manual resume continues from that cursor; a mid-page pause, local write failure, or access restriction keeps the current page so no remaining jobs are skipped. The default API path now initializes a non-search same-origin page and performs one explicit list request per page instead of loading and then re-requesting the real first search page. Legacy tasks may safely replay page 1 once after upgrading.
 
