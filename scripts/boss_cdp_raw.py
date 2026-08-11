@@ -606,9 +606,22 @@ EXTRACT_DETAIL_JS = """
             jd = text;
         }
     }
+    var restrictionTexts = [];
+    var restrictionSelectors = [
+        '[class*="security"]', '[class*="verify"]', '[class*="captcha"]',
+        '[class*="slider"]', '[id*="security"]', '[id*="verify"]',
+        '[id*="captcha"]', '[id*="slider"]'
+    ];
+    document.querySelectorAll(restrictionSelectors.join(',')).forEach(function(el){
+        var value = (el.innerText || '').trim();
+        if (value && restrictionTexts.indexOf(value) === -1) {
+            restrictionTexts.push(value);
+        }
+    });
     return JSON.stringify({
         jd: jd,
         page_text: pageText.substring(0, 12000),
+        restriction_text: restrictionTexts.join('\n').substring(0, 4000),
         tags: tags,
         title: firstText(['.job-banner .name', '.job-primary .name', 'h1']),
         location: firstText(['.job-banner .job-location', '.location-address', '.job-address']),
@@ -624,6 +637,18 @@ def _normalize_detail_whitespace(text):
     normalized = "\n".join(lines).strip()
     normalized = re.sub(r"\n{3,}", "\n\n", normalized)
     return re.sub(r"[ \t]{2,}", " ", normalized)
+
+
+def _looks_like_detail_access_restriction(text):
+    normalized = re.sub(r"\s+", "", str(text or ""))
+    if any(phrase in normalized for phrase in DETAIL_RESTRICTED_MESSAGE_PHRASES):
+        return True
+    verification_terms = ("验证码", "验证", "安全校验", "滑块")
+    restriction_cues = ("请", "需要", "必须", "重试", "继续访问", "按住", "拖动", "最右边")
+    return (
+        any(term in normalized for term in verification_terms)
+        and any(cue in normalized for cue in restriction_cues)
+    )
 
 
 def _looks_like_navigation_page(text):
@@ -726,12 +751,13 @@ def extract_detail_fields(extracted, min_length=MIN_DETAIL_TEXT_LENGTH):
 
     raw_jd = str(extracted.get("jd") or "")
     page_text = str(extracted.get("page_text") or "")
+    restriction_text = str(extracted.get("restriction_text") or "")
     extracted_url = str(extracted.get("url") or "")
     diagnostic_text = "\n".join((raw_jd, page_text, extracted_url))
 
-    if any(
-        phrase in diagnostic_text for phrase in DETAIL_RESTRICTED_MESSAGE_PHRASES
-    ):
+    if not raw_jd.strip():
+        restriction_text = "\n".join((restriction_text, page_text))
+    if _looks_like_detail_access_restriction(restriction_text):
         raise AccessRestrictedError("detail page reports access restriction")
 
     if DETAIL_LOGIN_MARKER in diagnostic_text:
