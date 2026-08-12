@@ -7,11 +7,12 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
-本项目基于 [eatmoreduck/boss-zhipin-scraper](https://github.com/eatmoreduck/boss-zhipin-scraper。进行修改和扩展。
+本项目基于 [eatmoreduck/boss-zhipin-scraper](https://github.com/eatmoreduck/boss-zhipin-scraper）
+进行修改和扩展。
 
 一个轻量的 **BOSS直聘爬虫（spider / crawler / scraper）**：通过 Chrome DevTools Protocol 连接本地已登录的专用 Chrome，复用真实登录态调用 zhipin.com 搜索 API。既保留原有 JSON / CSV CLI，也提供 SQLite 断点续跑、AI 结构化解析、Excel 导出和 Streamlit 本地任务面板。
 
-v2.5 同时提供 Codex Skill：先把用户的一句话解析为简短方案，得到确认后再执行；检索词不自动扩展，详情抓取与 AI 审核并行，任意目标岗位都按完整 JD 严格筛选。
+同时提供 Codex Skill：先把用户的一句话解析为简短方案，得到确认后再执行；检索词不自动扩展，详情抓取与 AI 审核并行，任意目标岗位都按完整 JD 严格筛选。
 
 > 📌 **一句话介绍**：不用 Selenium/Playwright，直接通过 Chrome DevTools Protocol 连接本地已登录的 Chrome，复用真实登录态调搜索 API，输出含明文薪资的 JSON/CSV，并生成薪资分布、技能词频和求职材料优化提示词。
 
@@ -90,7 +91,7 @@ GitHub 仓库只保存程序和数据库结构，不包含用户的数据库、�
 
 ## 本地 Streamlit 岗位采集程序
 
-v2.4.0 在原 CLI 外提供本地应用。Streamlit 只创建任务、读取 SQLite 和启动独立 worker，不在页面进程内阻塞采集；同一时刻只允许一个任务持有 worker 租约。
+在原 CLI 外提供本地应用。Streamlit 只创建任务、读取 SQLite 和启动独立 worker，不在页面进程内阻塞采集；同一时刻只允许一个任务持有 worker 租约。
 
 ```powershell
 python -m venv .venv
