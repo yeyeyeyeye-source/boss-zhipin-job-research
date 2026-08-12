@@ -16,7 +16,8 @@
 
 > 📌 **一句话介绍**：不用 Selenium/Playwright，直接通过 Chrome DevTools Protocol 连接本地已登录的 Chrome，复用真实登录态调搜索 API，输出含明文薪资的 JSON/CSV，并生成薪资分布、技能词频和求职材料优化提示词。
 
-![cover](cover.png)
+<img width="1672" height="941" alt="已生成图像 1" src="https://github.com/user-attachments/assets/01991438-adc2-4e7c-b6de-4db9fa85e324" />
+
 
 ---
 
@@ -134,7 +135,7 @@ Copy-Item .env.example .env
 <details>
 <summary>🔍 为什么不选 Selenium / Playwright 类爬虫？</summary>
 
-- Selenium/Playwright 会额外启动一套受控浏览器；本项目为了复用用户本人明确登录的隔离 Chrome，选择了更轻量的 CDP 连接方式。
+- Selenium/Playwright 会额外启动一套受控浏览器；本项目为了复用原作者明确登录的隔离 Chrome，选择了更轻量的 CDP 连接方式。
 - 列表页调用同一页面使用的搜索 API，直接读取明文 `salaryDesc`，无需把受字体混淆影响的 DOM 薪资当作可信数据。
 - CDP 并不保证不会触发平台限制。程序遇到限制状态会保存进度并停止，不提供代理、多账号、验证码破解或请求指纹绕过。
 
@@ -253,20 +254,21 @@ uv run boss-summary --top 15
 ## 文件结构
 
 ```
-boss-zhipin-scraper/
-├── app.py                # Streamlit 本地任务面板
-├── boss_app/             # SQLite、worker、AI 解析与 Excel 导出服务
-├── SKILL.md              # Codex Skill 定义
+boss-zhipin-job-research/
+├── app.py
+├── boss_app/       # SQLite、任务管理、采集、AI 与 Excel 导出
+├── scripts/        # CDP 抓取核心与原 CLI
+├── data/           # 城市编码表
+├── tests/          # 自动化测试
+├── docs/           # 架构与运行数据说明
+├── .github/        # CI 配置
 ├── README.md
+├── README.en.md
+├── SKILL.md
 ├── CHANGELOG.md
-├── LICENSE
 ├── pyproject.toml
-├── data/
-│   └── city_codes.json   # 全量城市码表
-├── scripts/
-│   ├── boss_cdp_raw.py   # CDP 抓取核心 + 原 CLI
-│   └── job_summary.py    # 抓取后摘要 + 提示词
-└── requirements.txt
+├── requirements.txt
+└── uv.lock
 ```
 
 ## 工作原理
