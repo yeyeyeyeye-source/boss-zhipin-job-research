@@ -125,7 +125,7 @@ Copy-Item .env.example .env
 - SQLite 任务状态机、独立 worker、单实例租约和暂停/继续
 - 分阶段数量、历史任务原地扩容、双重去重和访问受限断点恢复
 - OpenAI 兼容接口一次请求完成完整 JD 的 AI 运营相关性审核与三类摘要
-- 全国 AI运营 50 条合格门禁，支持 `irrelevant` 审计和不足目标时的 `incomplete`
+- 岗位 50 条合格门禁，支持 `irrelevant` 审计和不足目标时的 `incomplete`
 - 纯城市字段与严格 7 列 Excel（编号换行、冻结筛选、可点击岗位链接）
 - Streamlit 本地界面与 2 秒只读状态刷新
 - 一键环境检查 + 持久隔离 Chrome CDP profile
