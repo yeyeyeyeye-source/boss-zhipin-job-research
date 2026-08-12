@@ -7,6 +7,8 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
+本项目基于 [eatmoreduck/boss-zhipin-scraper](https://github.com/eatmoreduck/boss-zhipin-scraper。进行修改和扩展。
+
 一个轻量的 **BOSS直聘爬虫（spider / crawler / scraper）**：通过 Chrome DevTools Protocol 连接本地已登录的专用 Chrome，复用真实登录态调用 zhipin.com 搜索 API。既保留原有 JSON / CSV CLI，也提供 SQLite 断点续跑、AI 结构化解析、Excel 导出和 Streamlit 本地任务面板。
 
 v2.5 同时提供 Codex Skill：先把用户的一句话解析为简短方案，得到确认后再执行；检索词不自动扩展，详情抓取与 AI 审核并行，任意目标岗位都按完整 JD 严格筛选。
