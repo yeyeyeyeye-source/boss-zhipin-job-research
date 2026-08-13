@@ -146,6 +146,8 @@ class StrategyRunner:
 
     @staticmethod
     def _task_stop_status(task: dict[str, Any]) -> str | None:
+        if task["status"] == "paused":
+            return "paused"
         if task["status"] == "waiting_for_access":
             return "waiting_for_access"
         if task["status"] == "waiting_for_login":
@@ -270,6 +272,14 @@ class StrategyRunner:
         )
         for task_id in task_ids:
             self.database.update_task(task_id, last_run_id=run_id)
+            task = self.database.get_task(task_id)
+            if resumed and task["status"] == "paused":
+                self.database.update_task(
+                    task_id,
+                    pause_requested=0,
+                    status="pending",
+                    error_message="",
+                )
         run_token = uuid.uuid4().hex
         if not self.database.reserve_run_worker(run_id, run_token):
             raise RuntimeError(f"策略 Run 正在运行: {run_id}")
@@ -341,7 +351,7 @@ class StrategyRunner:
                         raise RuntimeError(
                             f"城市任务未达到可收口状态: {task_id}={task['status']}"
                         )
-                if controlled_status is not None:
+                if controlled_status is not None and controlled_status != "paused":
                     self._drain_saved_ai(
                         task_ids, run_id, run_token, budget,
                     )
@@ -353,6 +363,24 @@ class StrategyRunner:
                     controlled_status = (
                         "completed_with_errors" if had_errors else "completed"
                     )
+            if controlled_status == "paused":
+                current = self.database.get_run(run_id)
+                return RunResult(
+                    task_ids=task_ids,
+                    status="paused",
+                    output_path=None,
+                    strategy_id=strategy_id,
+                    run_id=run_id,
+                    run_number=int(current["run_number"]),
+                    request_used=int(current["request_used"]),
+                    reused_existing_result=False,
+                )
+            self.database.update_run(
+                run_id,
+                status=controlled_status,
+                stop_reason=controlled_status,
+                finished_at=utc_now(),
+            )
             freeze_strategy_run_snapshot(
                 self.database, strategy_id, run_id,
             )
@@ -366,12 +394,6 @@ class StrategyRunner:
                 )
             except EXPORT_FAILURE_EXCEPTIONS:
                 output_path = None
-            self.database.update_run(
-                run_id,
-                status=controlled_status,
-                stop_reason=controlled_status,
-                finished_at=utc_now(),
-            )
             finished = self.database.get_run(run_id)
             return RunResult(
                 task_ids=task_ids,

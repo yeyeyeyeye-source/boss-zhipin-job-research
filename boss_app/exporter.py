@@ -35,6 +35,13 @@ _INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _SPREADSHEET_FORMULA_PREFIXES = ("=", "+", "-", "@")
 
 
+def _require_snapshot_ready(run: dict[str, Any]) -> None:
+    if run["status"] == "running":
+        raise RuntimeError(
+            f"Run {run['run_id']} is still running and cannot be frozen or exported"
+        )
+
+
 def sanitize_filename_component(value: str, fallback: str = "未指定") -> str:
     cleaned = _INVALID_FILENAME_CHARS.sub("_", str(value or "").strip())
     cleaned = re.sub(r"\s+", "_", cleaned).strip(" ._")
@@ -237,6 +244,7 @@ def freeze_strategy_run_snapshot(
     run = database.get_run(run_id)
     if run is None or run["strategy_id"] != strategy_id:
         raise KeyError(run_id)
+    _require_snapshot_ready(run)
     if run["export_rows_json"]:
         return (
             json.loads(run["export_rows_json"]),
@@ -266,6 +274,7 @@ def export_strategy_run(
         raise KeyError(strategy_id)
     if run is None or run["strategy_id"] != strategy_id:
         raise KeyError(run_id)
+    _require_snapshot_ready(run)
     current = Path(run["output_path"]).expanduser() if run["output_path"] else None
     if (
         run["export_status"] == "completed"

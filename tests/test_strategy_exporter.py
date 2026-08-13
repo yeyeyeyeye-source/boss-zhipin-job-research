@@ -34,6 +34,7 @@ class StrategyExporterTests(unittest.TestCase):
         self.database.update_task(
             self.task_id, last_run_id=self.run_one["run_id"],
         )
+        self.database.update_run(self.run_one["run_id"], status="completed")
 
     def tearDown(self):
         self.tempdir.cleanup()
@@ -58,6 +59,7 @@ class StrategyExporterTests(unittest.TestCase):
         )
 
     def test_running_run_cannot_freeze_or_export(self):
+        self.database.update_run(self.run_one["run_id"], status="running")
         with self.assertRaisesRegex(RuntimeError, "running"):
             freeze_strategy_run_snapshot(
                 self.database,
@@ -85,6 +87,7 @@ class StrategyExporterTests(unittest.TestCase):
         run_two, _ = self.database.create_or_resume_run(
             self.strategy["strategy_id"], 1,
         )
+        self.database.update_run(run_two["run_id"], status="completed")
         self.database.update_task(self.task_id, last_run_id=run_two["run_id"])
         self._save_job("二")
 
@@ -135,6 +138,7 @@ class StrategyExporterTests(unittest.TestCase):
         run_two, _ = self.database.create_or_resume_run(
             self.strategy["strategy_id"], 1,
         )
+        self.database.update_run(run_two["run_id"], status="completed")
         self.database.update_task(self.task_id, last_run_id=run_two["run_id"])
         self._save_job("二")
         latest = export_strategy_run(

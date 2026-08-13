@@ -249,7 +249,7 @@ class StrategyRunnerTests(unittest.TestCase):
         self.assertEqual(run["status"], "running")
         self.assertEqual(run["request_used"], 1)
         self.assertIsNone(run["finished_at"])
-        self.assertIsNone(run["export_rows_json"])
+        self.assertFalse(run["export_rows_json"])
         self.assertIsNone(run["worker_token"])
         self.assertIsNone(self.database.get_task(result.task_ids[0])["worker_token"])
         self.exporter.assert_not_called()
