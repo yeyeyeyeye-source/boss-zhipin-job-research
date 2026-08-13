@@ -12,7 +12,9 @@ from typing import Any, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
 
-DEFAULT_DB_PATH = Path.home() / ".boss-zhipin-job-research" / "boss_jobs.db"
+CURRENT_RUNTIME_ROOT = Path.home() / ".boss-zhipin-job-research"
+LEGACY_RUNTIME_ROOT = Path.home() / ".boss-zhipin-scraper"
+DEFAULT_DB_PATH = CURRENT_RUNTIME_ROOT / "boss_jobs.db"
 
 TASK_STATUSES = {
     "pending", "processing", "paused", "completed", "completed_with_errors",
@@ -51,6 +53,33 @@ AI_STATUS_RANK = {
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def require_legacy_runtime_migrated(
+    path: str | os.PathLike[str],
+    *,
+    default_path: str | os.PathLike[str] = DEFAULT_DB_PATH,
+    current_root: str | os.PathLike[str] = CURRENT_RUNTIME_ROOT,
+    legacy_root: str | os.PathLike[str] = LEGACY_RUNTIME_ROOT,
+) -> None:
+    """Refuse to hide an existing legacy state tree behind a new empty default."""
+    selected = Path(path).expanduser().absolute()
+    expected = Path(default_path).expanduser().absolute()
+    current = Path(current_root).expanduser().absolute()
+    legacy = Path(legacy_root).expanduser().absolute()
+    if selected != expected or not legacy.exists():
+        return
+    if current.exists():
+        raise RuntimeError(
+            f"检测到新旧运行目录同时存在：'{current}' 与 '{legacy}'。"
+            "为避免覆盖或隐藏任一侧数据，请先关闭占用程序并人工核对、合并为新目录；程序不会自动处理。"
+        )
+    raise RuntimeError(
+        "检测到旧运行目录，但新目录尚不存在。为避免创建空库并隐藏历史任务，请先关闭占用该目录的程序，"
+        f"Windows: Move-Item -LiteralPath '{legacy}' -Destination '{current}'；"
+        f"macOS/Linux: mv -- '{legacy}' '{current}'。"
+        "也可显式传入 --db/BOSS_DB_PATH 继续使用现有数据库。"
+    )
 
 
 def _json_text(value: Any, default: str = "") -> str:
@@ -111,6 +140,7 @@ class Database:
 
     def __init__(self, path: str | os.PathLike[str] = DEFAULT_DB_PATH):
         self.path = Path(path).expanduser()
+        require_legacy_runtime_migrated(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.initialize()
 

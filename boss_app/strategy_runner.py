@@ -177,6 +177,20 @@ class StrategyRunner:
             strategy_id, cycle,
         )
         if (
+            latest is not None
+            and latest["status"] != "running"
+            and not latest["export_snapshot_at"]
+        ):
+            freeze_strategy_run_snapshot(
+                self.database, strategy_id, latest["run_id"],
+            )
+            self.export_fn(
+                self.database, strategy_id, latest["run_id"], output_dir,
+            )
+            latest = self.database.get_run(latest["run_id"])
+            if latest_full is not None and latest_full["run_id"] == latest["run_id"]:
+                latest_full = latest
+        if (
             not refresh
             and not ai_only
             and cycle_complete
@@ -270,16 +284,6 @@ class StrategyRunner:
         task_ids = self.database.ensure_strategy_tasks(
             strategy_id, cycle, spec, first_run_id=run_id,
         )
-        for task_id in task_ids:
-            self.database.update_task(task_id, last_run_id=run_id)
-            task = self.database.get_task(task_id)
-            if resumed and task["status"] == "paused":
-                self.database.update_task(
-                    task_id,
-                    pause_requested=0,
-                    status="pending",
-                    error_message="",
-                )
         run_token = uuid.uuid4().hex
         if not self.database.reserve_run_worker(run_id, run_token):
             raise RuntimeError(f"策略 Run 正在运行: {run_id}")
@@ -302,6 +306,27 @@ class StrategyRunner:
         controlled_status: str | None = None
         had_errors = False
         try:
+            if resumed and run["export_snapshot_at"]:
+                self.database.update_run(
+                    run_id,
+                    export_status="pending",
+                    output_path="",
+                    cumulative_export_count=0,
+                    export_rows_json="",
+                    review_rows_json="",
+                    export_snapshot_at="",
+                    export_error="",
+                )
+            for task_id in task_ids:
+                self.database.update_task(task_id, last_run_id=run_id)
+                task = self.database.get_task(task_id)
+                if resumed and task["status"] == "paused":
+                    self.database.update_task(
+                        task_id,
+                        pause_requested=0,
+                        status="pending",
+                        error_message="",
+                    )
             self.database.update_run(run_id, worker_pid=os.getpid())
             run_heartbeat.start()
             run_heartbeat_started = True

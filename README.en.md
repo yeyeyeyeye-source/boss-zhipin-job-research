@@ -1,11 +1,11 @@
-# boss-zhipin-job-research v2.7 (Chrome CDP / Codex Skill)
+# boss-zhipin-job-research v2.8 (Chrome CDP / Codex Skill)
 
 > 🌐 中文文档：[README.md](./README.md)
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
+![Version](https://img.shields.io/badge/version-2.8.0-orange.svg)
 
 A lightweight **BOSS Zhipin scraper / crawler** for [zhipin.com](https://www.zhipin.com). It connects to a dedicated, locally logged-in Chrome over CDP and calls the in-page search API. The current release keeps the original JSON / CSV CLI and adds resumable SQLite tasks, AI-assisted full-JD review, qualified-job Excel export, and a local Streamlit task UI.
 
@@ -50,7 +50,7 @@ uv run python scripts/job_summary.py
 
 Right after scraping you get: salary ranges, experience requirements, top skill keywords, and a job-application optimization prompt. The prompt is based solely on the scraped job data — it never reads your local résumé file and never scores personal-job match.
 
-## Codex Skill Multi-Run Deep Search (v2.7)
+## Codex Skill Multi-Run Deep Search (v2.8)
 
 This is the deterministic Codex Skill execution path; the legacy JSON/CSV CLI and Streamlit workflows remain available. A strategy is identified by its normalized keyword, target role/type, city set, and filters, while city input order controls scheduling only. Each city scans at most 15 pages / 450 list candidates. One explicitly started full Run shares 500 controllable BOSS logical operations across all cities (login probes, list WAPI calls, and detail navigations). This is a local safety budget—not an official BOSS risk threshold or a restriction-bypass mechanism.
 
@@ -88,7 +88,9 @@ Page-state evidence is evaluated one minimal visible text unit at a time outside
 
 The GitHub repository contains the application and database schema, not a user's database, job results, logs, secrets, or Chrome login state. A new checkout on the same computer continues to use `~/.boss-zhipin-job-research/boss_jobs.db` by default. On another computer, the application creates a new empty database and initializes its schema on first use.
 
-Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`. See [Local runtime data](docs/runtime-data.md) for storage, backup, and restore boundaries, and [Architecture](docs/architecture.md) for the current v2.7 data flow.
+When upgrading from the legacy directory, first close any program using an Excel file, database, or Chrome profile inside it, then rename the **entire** `~/.boss-zhipin-scraper` tree on the same volume to `~/.boss-zhipin-job-research`. Do not copy only `boss_jobs.db`: its WAL/SHM companions, Chrome login state, and historical outputs belong to the same runtime tree. On Windows run `Move-Item -LiteralPath "$HOME\.boss-zhipin-scraper" -Destination "$HOME\.boss-zhipin-job-research"`; on macOS/Linux run `mv -- "$HOME/.boss-zhipin-scraper" "$HOME/.boss-zhipin-job-research"`. If the old tree exists and the new one does not, default entry points stop with migration guidance. If both trees exist, they stop and require manual reconciliation rather than overwriting or hiding either side. Explicit `--db`, `BOSS_DB_PATH`, or input/output paths remain available.
+
+Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`. See [Local runtime data](docs/runtime-data.md) for storage, backup, and restore boundaries, and [Architecture](docs/architecture.md) for the current v2.8 data flow.
 
 ## Local Streamlit Job Collector
 
@@ -149,7 +151,7 @@ For candidates already inserted into the same task from a trusted offline source
 
 ### Complete project (recommended)
 
-The v2.7 Skill entry point depends on `boss_app/`, `scripts/`, `data/`, and the project dependencies. Downloading only `SKILL.md` or individual scripts is not sufficient. Clone the complete repository:
+The v2.8 Skill entry point depends on `boss_app/`, `scripts/`, `data/`, and the project dependencies. Downloading only `SKILL.md` or individual scripts is not sufficient. Clone the complete repository:
 
 ```bash
 git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git

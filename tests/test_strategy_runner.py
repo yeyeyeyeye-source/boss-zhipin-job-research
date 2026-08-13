@@ -533,6 +533,88 @@ class StrategyRunnerTests(unittest.TestCase):
             [event for event in self.events if event[0] == "run"], [],
         )
 
+    def test_resuming_legacy_running_run_discards_early_snapshot(self):
+        strategy = self.database.get_or_create_strategy(self.spec)
+        run, _ = self.database.create_or_resume_run(strategy["strategy_id"], 1)
+        task_ids = self.database.ensure_strategy_tasks(
+            strategy["strategy_id"], 1, self.spec, first_run_id=run["run_id"],
+        )
+        for task_id in task_ids:
+            self.database.update_task(task_id, status="paused", pause_requested=1)
+        old_file = self.directory / "early.xlsx"
+        old_file.touch()
+        self.database.update_run(
+            run["run_id"],
+            export_rows_json='[{"job_name": "OLD"}]',
+            review_rows_json="[]",
+            export_snapshot_at="2026-01-01T00:00:00+00:00",
+            export_status="completed",
+            output_path=str(old_file),
+        )
+
+        result = self.runner.execute(self.spec, output_dir=self.directory)
+
+        repaired = self.database.get_run(run["run_id"])
+        self.assertEqual(result.run_id, run["run_id"])
+        self.assertNotIn("OLD", repaired["export_rows_json"])
+        self.assertNotEqual(repaired["output_path"], str(old_file))
+
+    def test_failed_run_lease_does_not_cancel_paused_task(self):
+        strategy = self.database.get_or_create_strategy(self.spec)
+        run, _ = self.database.create_or_resume_run(strategy["strategy_id"], 1)
+        task_id = self.database.ensure_strategy_tasks(
+            strategy["strategy_id"], 1, self.spec, first_run_id=run["run_id"],
+        )[0]
+        self.database.update_task(task_id, status="paused", pause_requested=1)
+        self.assertTrue(self.database.reserve_run_worker(run["run_id"], "live"))
+
+        with self.assertRaisesRegex(RuntimeError, "正在运行"):
+            self.runner.execute(self.spec, output_dir=self.directory)
+
+        task = self.database.get_task(task_id)
+        self.assertEqual(task["status"], "paused")
+        self.assertEqual(task["pause_requested"], 1)
+
+    def test_terminal_run_without_snapshot_is_repaired_before_reuse(self):
+        strategy = self.database.get_or_create_strategy(self.spec)
+        run, _ = self.database.create_or_resume_run(strategy["strategy_id"], 1)
+        task_ids = self.database.ensure_strategy_tasks(
+            strategy["strategy_id"], 1, self.spec, first_run_id=run["run_id"],
+        )
+        for task_id in task_ids:
+            self.database.update_task(task_id, status="completed")
+        self.database.update_run(
+            run["run_id"], status="completed", finished_at="2026-01-01T00:00:00+00:00",
+        )
+
+        result = self.runner.execute(self.spec, output_dir=self.directory)
+
+        repaired = self.database.get_run(run["run_id"])
+        self.assertEqual(result.run_id, run["run_id"])
+        self.assertTrue(repaired["export_snapshot_at"])
+        self.exporter.assert_called_once()
+
+    def test_incomplete_terminal_run_is_repaired_before_next_run(self):
+        strategy = self.database.get_or_create_strategy(self.spec)
+        run, _ = self.database.create_or_resume_run(strategy["strategy_id"], 1)
+        task_ids = self.database.ensure_strategy_tasks(
+            strategy["strategy_id"], 1, self.spec, first_run_id=run["run_id"],
+        )
+        self.database.update_task(task_ids[0], status="incomplete")
+        self.database.update_task(task_ids[1], status="completed")
+        self.database.update_run(
+            run["run_id"],
+            status="budget_exhausted",
+            finished_at="2026-01-01T00:00:00+00:00",
+        )
+
+        result = self.runner.execute(self.spec, output_dir=self.directory)
+
+        repaired = self.database.get_run(run["run_id"])
+        self.assertNotEqual(result.run_id, run["run_id"])
+        self.assertTrue(repaired["export_snapshot_at"])
+        self.assertEqual(self.exporter.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

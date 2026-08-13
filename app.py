@@ -6,12 +6,16 @@ import os
 from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
 
 from boss_app.db import DEFAULT_DB_PATH, Database, uses_qualified_target
 from boss_app.exporter import export_task_to_excel
 from boss_app.login_manager import LoginManager, LoginState, LoginStatus
 from boss_app.task_manager import RUN_MODE_LIMITS, TaskManager, resolve_job_limit
 from scripts import boss_cdp_raw as core
+
+
+load_dotenv()
 
 
 st.set_page_config(page_title="BOSS 岗位采集", page_icon="📋", layout="wide")
@@ -195,7 +199,9 @@ def main() -> None:
             st.success("AI 重处理已启动")
         else:
             st.warning("已有任务正在运行")
-    if action_columns[3].button("导出 Excel", use_container_width=True):
+    if action_columns[3].button(
+        "导出 Excel", use_container_width=True, disabled=strategy_owned,
+    ):
         try:
             output_path = export_task_to_excel(database, selected_id)
             st.session_state["excel_path"] = str(output_path)

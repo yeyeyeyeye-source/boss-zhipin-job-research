@@ -262,6 +262,10 @@ def freeze_strategy_run_snapshot(
     return rows, review_rows
 
 
+def default_output_dir(database: Database) -> Path:
+    return database.path.parent / "job-result"
+
+
 def export_strategy_run(
     database: Database,
     strategy_id: str,
@@ -294,7 +298,7 @@ def export_strategy_run(
     try:
         target_dir = Path(
             output_dir
-            or Path.home() / ".boss-zhipin-job-research" / "job-result"
+            or default_output_dir(database)
         ).expanduser()
         target_dir.mkdir(parents=True, exist_ok=True)
         filename = (
@@ -340,6 +344,11 @@ def export_task_to_excel(
     task_id: str,
     output_dir: str | Path | None = None,
 ) -> Path:
+    task = database.get_task(task_id)
+    if task is None:
+        raise KeyError(task_id)
+    if task["strategy_id"]:
+        raise RuntimeError("策略任务必须按 Run 的冻结快照导出")
     return export_tasks_to_excel(database, [task_id], output_dir)
 
 
@@ -356,6 +365,8 @@ def export_tasks_to_excel(
         task = database.get_task(task_id)
         if task is None:
             raise KeyError(task_id)
+        if task["strategy_id"]:
+            raise RuntimeError("策略任务必须按 Run 的冻结快照导出")
         tasks.append(task)
         all_jobs.extend(database.list_jobs(task_id))
     task = tasks[0]
@@ -390,7 +401,7 @@ def export_tasks_to_excel(
         for job in all_jobs
         if job["crawl_status"] == "completed" and job["ai_status"] == "manual_review"
     ]
-    target_dir = Path(output_dir or Path.home() / ".boss-zhipin-job-research" / "job-result").expanduser()
+    target_dir = Path(output_dir or default_output_dir(database)).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     city_name = "_".join(dict.fromkeys(item["city"] for item in tasks))
     filename = (

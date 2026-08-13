@@ -364,6 +364,13 @@ def main(argv=None):
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
+    if not args.input and os.path.abspath(os.path.expanduser(args.result_dir)) == os.path.abspath(DEFAULT_RESULT_DIR):
+        try:
+            boss.require_legacy_runtime_migrated(args.result_dir)
+        except RuntimeError as exc:
+            print(exc)
+            return 1
+
     input_path = os.path.expanduser(args.input) if args.input else find_latest_jobs_file(args.result_dir)
     if not input_path:
         print(f"未找到列表文件，请先抓取岗位或用 --input 指定 boss_jobs_*.json。结果目录: {args.result_dir}")

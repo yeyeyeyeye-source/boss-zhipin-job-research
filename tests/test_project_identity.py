@@ -18,8 +18,13 @@ class ProjectIdentityTests(unittest.TestCase):
             pyproject,
             re.compile(rf'^name = "{PROJECT}"$', re.MULTILINE),
         )
+        self.assertIn('maintainers = [', pyproject)
         self.assertIn('{ name = "yeyeyeyeye-source"', pyproject)
         self.assertIn(REPOSITORY, pyproject)
+        self.assertIn('version = "2.8.0"', pyproject)
+        self.assertIn('__version__ = "2.8.0"', self.read("scripts/boss_cdp_raw.py"))
+        self.assertIn("Version: 2.8.0", self.read("SKILL.md"))
+        self.assertIn("version-2.8.0", self.read("README.md"))
 
     def test_public_docs_and_skill_use_current_repository(self):
         for name in (
@@ -28,8 +33,13 @@ class ProjectIdentityTests(unittest.TestCase):
         ):
             with self.subTest(name=name):
                 content = self.read(name)
-                self.assertNotIn("boss-zhipin-scraper", content)
+                self.assertNotIn(
+                    "github.com/eatmoreduck/boss-zhipin-scraper", content,
+                )
                 self.assertNotIn("eatmoreduck", content)
+
+        for name in ("SKILL.md", "agents/openai.yaml", "docs/architecture.md"):
+            self.assertNotIn("boss-zhipin-scraper", self.read(name))
 
         self.assertIn(REPOSITORY, self.read("README.md"))
         self.assertIn(REPOSITORY, self.read("README.en.md"))

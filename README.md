@@ -1,11 +1,11 @@
-# boss-zhipin-job-research v2.7（Chrome CDP / Codex Skill）
+# boss-zhipin-job-research v2.8（Chrome CDP / Codex Skill）
 
 > 🌐 English documentation: [README.en.md](./README.en.md)
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
+![Version](https://img.shields.io/badge/version-2.8.0-orange.svg)
 
 当前唯一源码与维护入口：
 [yeyeyeyeye-source/boss-zhipin-job-research](https://github.com/yeyeyeyeye-source/boss-zhipin-job-research)。
@@ -53,7 +53,7 @@ uv run python scripts/job_summary.py
 
 抓完直接拿到：薪资分布、经验要求、高频技能词、求职材料优化提示词。提示词只基于岗位数据，不读取本地简历文件，也不给岗位算个人匹配分。
 
-## Skill 多轮深度检索（v2.7）
+## Skill 多轮深度检索（v2.8）
 
 这是 Codex Skill 的确定性执行路径；原 JSON/CSV CLI 与 Streamlit 用法保持不变。策略身份由规范化后的检索词、目标岗位与类型、城市集合和筛选条件共同确定，城市输入顺序只决定调度顺序。每个城市固定最多扫描 15 页、保存 450 个列表候选；一次明确执行的 full Run 在所有城市之间共用 500 次可控 BOSS 逻辑操作（登录探测、列表 WAPI、详情导航）。500 是本地安全预算，不是 BOSS 官方安全阈值，也不能用来规避平台限制。
 
@@ -91,7 +91,9 @@ Strategy 任务采用单页流水线：每次只获取一页列表，先将该�
 
 GitHub 仓库只保存程序和数据库结构，不包含用户的数据库、岗位结果、日志、密钥或 Chrome 登录状态。同一台电脑上的新 checkout 默认继续使用 `~/.boss-zhipin-job-research/boss_jobs.db`；在另一台电脑首次运行时，程序会创建一份新的空数据库并初始化表结构。
 
-不要复制或提交 `.venv`。请使用 `uv sync --locked` 根据 `uv.lock` 重建环境。目录职责、备份与恢复方法见 [本地运行数据](docs/runtime-data.md)，当前 v2.7 数据流见 [架构说明](docs/architecture.md)。
+从旧目录升级时必须先关闭正在打开其中 Excel、数据库或 Chrome profile 的程序，再把**整个** `~/.boss-zhipin-scraper` 同卷重命名为 `~/.boss-zhipin-job-research`；不要只复制 `boss_jobs.db`，因为 WAL/SHM、Chrome 登录态和历史输出也属于同一运行树。Windows 可执行 `Move-Item -LiteralPath "$HOME\.boss-zhipin-scraper" -Destination "$HOME\.boss-zhipin-job-research"`；macOS/Linux 可执行 `mv -- "$HOME/.boss-zhipin-scraper" "$HOME/.boss-zhipin-job-research"`。若检测到旧树存在而新树不存在，默认入口会停止并提示迁移；若新旧树同时存在，则会阻断并要求人工核对合并，不会覆盖或隐藏任一侧。显式 `--db`、`BOSS_DB_PATH` 或输入/输出路径仍可定向使用原数据。
+
+不要复制或提交 `.venv`。请使用 `uv sync --locked` 根据 `uv.lock` 重建环境。目录职责、备份与恢复方法见 [本地运行数据](docs/runtime-data.md)，当前 v2.8 数据流见 [架构说明](docs/architecture.md)。
 
 ## 本地 Streamlit 岗位采集程序
 
@@ -148,7 +150,7 @@ Copy-Item .env.example .env
 
 ### 完整项目（推荐）
 
-v2.7 的 Skill 入口依赖 `boss_app/`、`scripts/`、`data/` 和项目依赖，不能只下载 `SKILL.md` 或单个脚本。请克隆完整仓库：
+v2.8 的 Skill 入口依赖 `boss_app/`、`scripts/`、`data/` 和项目依赖，不能只下载 `SKILL.md` 或单个脚本。请克隆完整仓库：
 
 ```bash
 git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git

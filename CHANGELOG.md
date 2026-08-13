@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v2.8.0 (2026-08-13)
+
 ### 修复
 - Strategy Run 只有在受控收口后才能冻结或导出；用户暂停保持同一 `running` Run、既有请求预算和断点，明确再次执行同一策略后继续
 - Streamlit 与通用 `TaskManager` 不再把策略 Task 交给普通 worker；恢复、扩容和 AI 重试统一回到 Strategy Runner
@@ -10,6 +12,8 @@
 - 当前项目、包、Skill、安装链接与默认数据目录统一为 `boss-zhipin-job-research`
 - 当前维护身份统一为 `yeyeyeyeye-source`；保留 MIT 原版权并集中记录项目来源
 - 移除从旧仓沿袭的强制 Issue 门槛、裸旧 Issue 编号和错误的旧作者运行视角
+- 默认运行树改名时增加整树迁移阻断，避免静默创建空库、空 profile 或空结果视图
+- 修复旧版本已提前冻结的 running Run，并自动补齐终态但缺少快照的 Run
 
 ## v2.7.0 (2026-08-10)
 

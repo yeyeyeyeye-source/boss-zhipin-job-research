@@ -435,6 +435,21 @@ class GenericTargetDatabaseTests(unittest.TestCase):
 
 
 class ExcelExporterTests(unittest.TestCase):
+    def test_strategy_task_cannot_use_mutable_task_export(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "jobs.db")
+            spec = StrategySpec.create(
+                "AI运营", "AI运营", "exact_role", ["北京"],
+            )
+            strategy = database.get_or_create_strategy(spec)
+            run, _ = database.create_or_resume_run(strategy["strategy_id"], 1)
+            task_id = database.ensure_strategy_tasks(
+                strategy["strategy_id"], 1, spec, first_run_id=run["run_id"],
+            )[0]
+
+            with self.assertRaisesRegex(RuntimeError, "冻结快照"):
+                export_task_to_excel(database, task_id, directory)
+
     def test_multi_task_export_merges_matched_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")

@@ -19,7 +19,7 @@ BOSS直聘职位抓取 + 分析 — 纯 CDP raw protocol
   uv run python3 scripts/boss_cdp_raw.py --version
 """
 
-__version__ = "2.7.0"
+__version__ = "2.8.0"
 
 import json
 import time
@@ -129,6 +129,8 @@ DEFAULT_PROFILE_DIR = get_default_profile_dir()
 
 DEFAULT_CDP_DATA_DIR = os.path.expanduser("~/.boss-zhipin-job-research/chrome-profile")
 DEFAULT_RESULT_DIR = os.path.expanduser("~/.boss-zhipin-job-research/job-result")
+CURRENT_RUNTIME_ROOT = os.path.expanduser("~/.boss-zhipin-job-research")
+LEGACY_RUNTIME_ROOT = os.path.expanduser("~/.boss-zhipin-scraper")
 DEFAULT_CITY_INPUT = "上海"
 LOGIN_PROBE_QUERY = "Java"
 LOGIN_PROBE_CITY = "101020100"
@@ -213,6 +215,31 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("boss_cdp")
+
+
+def require_legacy_runtime_migrated(selected_default=None):
+    if selected_default is not None:
+        selected = os.path.normcase(os.path.abspath(os.path.expanduser(selected_default)))
+        canonical_defaults = {
+            os.path.normcase(os.path.abspath(os.path.join(CURRENT_RUNTIME_ROOT, "chrome-profile"))),
+            os.path.normcase(os.path.abspath(os.path.join(CURRENT_RUNTIME_ROOT, "job-result"))),
+        }
+        if selected not in canonical_defaults:
+            return
+    if not os.path.exists(LEGACY_RUNTIME_ROOT):
+        return
+    if os.path.exists(CURRENT_RUNTIME_ROOT):
+        raise RuntimeError(
+            f"检测到新旧运行目录同时存在：'{CURRENT_RUNTIME_ROOT}' 与 '{LEGACY_RUNTIME_ROOT}'。"
+            "为避免覆盖或隐藏任一侧数据，请先关闭占用程序并人工核对、合并为新目录；程序不会自动处理。"
+        )
+    raise RuntimeError(
+        "检测到旧运行目录，但新目录尚不存在。请先关闭占用该目录的程序并移动整个运行目录："
+        f"Windows: Move-Item -LiteralPath '{LEGACY_RUNTIME_ROOT}' "
+        f"-Destination '{CURRENT_RUNTIME_ROOT}'；"
+        f"macOS/Linux: mv -- '{LEGACY_RUNTIME_ROOT}' '{CURRENT_RUNTIME_ROOT}'。"
+        "显式 --input/--output/--detail-output/--result-dir 路径仍可用于只读或定向操作。"
+    )
 
 
 def default_output_path(kind):
@@ -2380,6 +2407,7 @@ def run_check(cdp_port=DEFAULT_CDP_PORT):
 # ============================================================
 def prepare_cdp_profile(copy_login_state=False, reset=False):
     """Prepare an isolated persistent Chrome profile for CDP."""
+    require_legacy_runtime_migrated(DEFAULT_CDP_DATA_DIR)
     cdp_data_dir = DEFAULT_CDP_DATA_DIR
     cdp_default = os.path.join(cdp_data_dir, "Default")
 
@@ -2817,16 +2845,26 @@ def main():
     if args.stop_chrome:
         sys.exit(run_stop_chrome())
 
-    if not require_runtime_dependencies("requests", "websocket"):
-        sys.exit(1)
-
-    # 抓取前校验城市，避免无效中文名被原样作为 city 参数继续请求。
     if not args.input:
         try:
             resolve_city(args.city)
-        except CityResolutionError as e:
-            print(f"❌ {e}")
+        except CityResolutionError as exc:
+            print(f"❌ {exc}")
             sys.exit(1)
+
+    uses_default_result_dir = (
+        (not args.input and args.output is None)
+        or (args.detail and args.detail_output is None)
+    )
+    if uses_default_result_dir:
+        try:
+            require_legacy_runtime_migrated(DEFAULT_RESULT_DIR)
+        except RuntimeError as exc:
+            print(exc)
+            sys.exit(1)
+
+    if not require_runtime_dependencies("requests", "websocket"):
+        sys.exit(1)
 
     # 页数限制
     if args.pages > MAX_PAGES:

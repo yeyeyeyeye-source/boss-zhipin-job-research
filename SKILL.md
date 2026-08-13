@@ -5,7 +5,7 @@ description: Collect and analyze public BOSS直聘 job listings through the user
 
 # BOSS直聘岗位采集
 
-Version: 2.7.0
+Version: 2.8.0
 
 仅用于用户个人求职分析。复用本 Skill 内现有 `boss_app`、`scripts/boss_cdp_raw.py` 和 `data/city_codes.json`，不要复制 CDP 实现。
 

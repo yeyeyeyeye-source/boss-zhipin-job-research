@@ -342,6 +342,7 @@ class ChromeSetupTests(unittest.TestCase):
                  ]), \
                  mock.patch.object(module, "require_runtime_dependencies", return_value=True), \
                  mock.patch.object(module, "resolve_city", return_value=("全国", "100010000")), \
+                 mock.patch.object(module, "require_legacy_runtime_migrated"), \
                  mock.patch.object(
                      module,
                      "check_login_state",

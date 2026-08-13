@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from .collector import Collector
 from .db import DEFAULT_DB_PATH, Database
@@ -112,7 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--target-role", required=True)
     run.add_argument("--target-type", choices=("exact_role", "domain_scope"), required=True)
     run.add_argument("--cities", nargs="+", required=True)
-    run.add_argument("--db", default=str(DEFAULT_DB_PATH))
+    run.add_argument("--db", default=os.environ.get("BOSS_DB_PATH", str(DEFAULT_DB_PATH)))
     run.add_argument("--output-dir", default="")
     run.add_argument("--salary-filter", default="")
     run.add_argument("--experience-filter", default="")
@@ -123,12 +126,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--execute", action="store_true")
     export = subparsers.add_parser("export")
     export.add_argument("--run-id", required=True)
-    export.add_argument("--db", default=str(DEFAULT_DB_PATH))
+    export.add_argument("--db", default=os.environ.get("BOSS_DB_PATH", str(DEFAULT_DB_PATH)))
     export.add_argument("--output-dir", default="")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv()
     args = build_parser().parse_args(argv)
     if args.command == "run" and not args.execute:
         print("拒绝执行：必须先向用户展示方案并获得确认，再传入 --execute", file=sys.stderr)
