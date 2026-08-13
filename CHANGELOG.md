@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### 修复
+- Strategy Run 只有在受控收口后才能冻结或导出；用户暂停保持同一 `running` Run、既有请求预算和断点，明确再次执行同一策略后继续
+- Streamlit 与通用 `TaskManager` 不再把策略 Task 交给普通 worker；恢复、扩容和 AI 重试统一回到 Strategy Runner
+
+### 项目整理
+- 当前项目、包、Skill、安装链接与默认数据目录统一为 `boss-zhipin-job-research`
+- 当前维护身份统一为 `yeyeyeyeye-source`；保留 MIT 原版权并集中记录项目来源
+- 移除从旧仓沿袭的强制 Issue 门槛、裸旧 Issue 编号和错误的旧作者运行视角
+
 ## v2.7.0 (2026-08-10)
 
 ### 新增
@@ -58,7 +69,7 @@
 - CDP 核心新增可复用的 `fetch_list_page` 和 `fetch_job_detail`，原 CLI 行为保持不变
 - 详情/列表结果新增独立字段 `boss_active_status`（如「今日活跃」「在线」）：列表兼容 `activeTimeDesc` 与 `bossOnline`（仅在线时映射为「在线」）；详情页从招聘者卡片解析更细粒度状态并优先保留；JD 正文仍剔除该行，不混入描述
 - 新增 `--stop-chrome` 命令：抓取/分析完成后关闭 BOSS 专用 CDP Chrome（按 user-data-dir 精准匹配隔离 profile，不碰主 Chrome）；抓取命令新增 `--close-chrome` 选项，正常结束后自动收尾（默认关闭，异常退出不触发以保留登录态）。复用已有 `stop_cdp_chrome` 的安全匹配逻辑，补齐进程关闭/收尾链路的单元测试。（#26）
-- 城市码表外置为 `data/city_codes.json`（全量 300+ 城市，覆盖一二三四五线），新增 `--list-cities [关键词]` 命令查看支持的城市；`resolve_city` 查询链改为「本地静态码表 → 运行时拉 BOSS 接口 → 9 位裸码兜底」。城市码表打进 wheel，`pip install` 用户也可用。（#24）
+- 城市码表外置为 `data/city_codes.json`（全量 300+ 城市，覆盖一二三四五线），新增 `--list-cities [关键词]` 命令查看支持的城市；`resolve_city` 查询链改为「本地静态码表 → 运行时拉 BOSS 接口 → 9 位裸码兜底」。城市码表打进 wheel，`pip install` 用户也可用。
 
 ### 修复
 - v2.5.1 列表任务新增安全的下一页游标，恢复时不再重放已完整处理的历史页；默认 API 路径改用非搜索同源上下文，避免真实搜索第一页与显式 WAPI 的双重列表获取。页内暂停、写入异常或访问限制仍保留当前页且不自动重试
@@ -69,7 +80,7 @@
 - Windows GBK 控制台遇到 emoji 时不再抛出 `UnicodeEncodeError`；带空格或引号的 `--user-data-dir` 能被正确解析，专用 Chrome 仍按 profile 精确匹配
 - 详情结果校验请求岗位 ID 与最终 URL，错位页面标记失败；标题和实际地址优先采用详情页值并以列表数据兜底
 - 城市解析先执行本地及在线码表的正反向映射，再接受未收录的 9 位裸城市码；未知城市名现在会在抓取前明确报错退出。在线城市接口同时校验业务 `code`，不再把 `code: 35` 等风控响应静默当作空码表
-- 登录探测识别 BOSS 风控码 `code: 37`「您的环境存在异常」为限制状态（RESTRICTED），并对未知风控码按 message 关键字（环境存在异常、访问频繁、安全校验等）兜底识别；避免已登录但被风控/限流的用户被误判为「登录探测响应异常」而无法继续。（#33）
+- 登录探测识别 BOSS 风控码 `code: 37`「您的环境存在异常」为限制状态（RESTRICTED），并对未知风控码按 message 关键字（环境存在异常、访问频繁、安全校验等）兜底识别；避免已登录但被风控/限流的用户被误判为「登录探测响应异常」而无法继续。
 - 登录探测改为区分可用、未登录、限制、空结果和响应异常；每轮仅请求一次并采用有上限的退避等待，`code: 31` 等明确限制会立即停止。探测请求现已纳入全局请求预算，CLI 不再把风控或异常统一提示为未登录。（#31）
 - 登录检查、列表/详情抓取和 smoke test 的临时标签页统一在后台创建，仅人工登录页置前，避免自动流程抢占前台焦点（#28）
 - 详情页 JD 改为只提取“职位描述”区，并在登录墙、导航页或过短正文出现时拒绝写入，不再把整页 `body`、招聘者信息、公司介绍和推荐职位当作 JD
@@ -102,7 +113,7 @@
 - `--reset-chrome-profile` 重建 BOSS 专用 Chrome profile
 - `--setup-chrome` 默认等待 BOSS 登录完成，并确认接口返回明文薪资
 - `--no-wait-login` / `--login-timeout` 控制 setup 登录等待
-- 默认抓取结果保存到 `~/.boss-zhipin-scraper/job-result`
+- 当时默认抓取结果保存到旧目录；当前目录见 `docs/runtime-data.md`
 - 未传 `--city` 时默认搜索上海
 - `--format csv` 同时导出列表 CSV 和详情 CSV
 - `--merge` 合并多次抓取结果（去重）

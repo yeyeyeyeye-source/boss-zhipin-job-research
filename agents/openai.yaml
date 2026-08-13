@@ -1,6 +1,6 @@
 interface:
   display_name: "BOSS直聘岗位采集"
   short_description: "通过专用 Chrome 采集、解析并导出 BOSS 岗位"
-  default_prompt: "Use $boss-zhipin-scraper to collect BOSS直聘 jobs for my requested target and cities, then export reviewed results to Excel."
+  default_prompt: "Use $boss-zhipin-job-research to collect BOSS直聘 jobs for my requested target and cities, then export reviewed results to Excel."
 policy:
   allow_implicit_invocation: true

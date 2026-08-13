@@ -56,7 +56,7 @@ wheels = [
 ]
 
 [[package]]
-name = "boss-zhipin-scraper"
+name = "boss-zhipin-job-research"
 version = "2.7.0"
 source = { editable = "." }
 dependencies = [

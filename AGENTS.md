@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Canonical source
+
+The only active source and maintenance repository is
+`https://github.com/yeyeyeyeye-source/boss-zhipin-job-research` on `main`.
+Do not treat legacy local repositories, worktrees, runtime copies, or handoff
+documents as current source.
+
 ## Project boundary
 
 This project connects to the user's own logged-in dedicated Chrome through CDP to collect public BOSS直聘 job listings for personal job-search analysis. Do not add proxies, multiple-account automation, CAPTCHA bypasses, fingerprint evasion, or automatic access-restriction retries.
@@ -26,7 +33,7 @@ This project connects to the user's own logged-in dedicated Chrome through CDP t
 - Keep version surfaces synchronized in `scripts/boss_cdp_raw.py`, `pyproject.toml`, `SKILL.md`, and `README.md`.
 - No bare `except:`; preserve existing error semantics.
 - User-visible behavior changes require synchronized Chinese/English README and CHANGELOG updates.
-- Preserve the original CLI and public interfaces unless the change explicitly requires a compatibility break.
+- Preserve stable CLI and public interfaces unless the change explicitly requires a compatibility break.
 
 ## Verification
 

@@ -127,8 +127,8 @@ def get_default_profile_dir():
 DEFAULT_CHROME_PATH = get_default_chrome_path()
 DEFAULT_PROFILE_DIR = get_default_profile_dir()
 
-DEFAULT_CDP_DATA_DIR = os.path.expanduser("~/.boss-zhipin-scraper/chrome-profile")
-DEFAULT_RESULT_DIR = os.path.expanduser("~/.boss-zhipin-scraper/job-result")
+DEFAULT_CDP_DATA_DIR = os.path.expanduser("~/.boss-zhipin-job-research/chrome-profile")
+DEFAULT_RESULT_DIR = os.path.expanduser("~/.boss-zhipin-job-research/job-result")
 DEFAULT_CITY_INPUT = "上海"
 LOGIN_PROBE_QUERY = "Java"
 LOGIN_PROBE_CITY = "101020100"
@@ -252,7 +252,7 @@ def require_runtime_dependencies(*names):
 # - 筛选项: https://www.zhipin.com/wapi/zpgeek/search/job/condition.json
 # ============================================================
 # 城市码表已外置到 data/city_codes.json（全量城市，覆盖一二三四五线），
-# 见 issue #24。resolve_city 查询链：本地静态 → 运行时拉 BOSS 接口 → 9 位裸码兜底。
+# resolve_city 查询链：本地静态 → 运行时拉 BOSS 接口 → 9 位裸码兜底。
 # 仓库内路径（开发态）与打包后路径（pip install）都在 _city_data_path() 里处理。
 CITY_DATA_FILENAME = "city_codes.json"
 
@@ -2719,7 +2719,7 @@ def main():
   %(prog)s --keyword "Java 风控" --pages 3 --detail --analysis
 
   # 只分析已有数据
-  %(prog)s --input ~/.boss-zhipin-scraper/job-result/boss_jobs_20260609_1200.json --analysis --no-detail
+  %(prog)s --input ~/.boss-zhipin-job-research/job-result/boss_jobs_20260609_1200.json --analysis --no-detail
 
   # 导出 CSV
   %(prog)s --keyword "Java 风控" --pages 3 --format csv

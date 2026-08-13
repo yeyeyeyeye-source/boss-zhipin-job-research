@@ -1,5 +1,5 @@
 ---
-name: boss-zhipin-scraper
+name: boss-zhipin-job-research
 description: Collect and analyze public BOSS直聘 job listings through the user's logged-in dedicated Chrome, with SQLite resume, concurrent detail/AI processing, strict target-JD review, and Excel export. Use when the user asks Codex to search, collect, inspect, analyze, or export BOSS直聘 or zhipin.com jobs by target role and city.
 ---
 

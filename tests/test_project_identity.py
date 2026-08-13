@@ -14,7 +14,10 @@ class ProjectIdentityTests(unittest.TestCase):
 
     def test_metadata_uses_current_project_and_maintainer(self):
         pyproject = self.read("pyproject.toml")
-        self.assertRegex(pyproject, rf'^name = "{PROJECT}"$', re.MULTILINE)
+        self.assertRegex(
+            pyproject,
+            re.compile(rf'^name = "{PROJECT}"$', re.MULTILINE),
+        )
         self.assertIn('{ name = "yeyeyeyeye-source"', pyproject)
         self.assertIn(REPOSITORY, pyproject)
 
@@ -35,8 +38,8 @@ class ProjectIdentityTests(unittest.TestCase):
     def test_current_docs_do_not_inherit_old_issue_gate_or_author_voice(self):
         contributing = self.read("CONTRIBUTING.md")
         readme = self.read("README.md")
-        self.assertNotIn("先开 Issue 再写代码", contributing)
-        self.assertNotIn("原作者明确登录", readme)
+        self.assertNotIn("\u5148\u5f00 Issue \u518d\u5199\u4ee3\u7801", contributing)
+        self.assertNotIn("\u539f\u4f5c\u8005\u660e\u786e\u767b\u5f55", readme)
         self.assertNotRegex(
             "\n".join((contributing, readme, self.read("README.en.md"))),
             r"(?<![A-Za-z])(?:issue\s*)?#(?:24|33)(?!\d)",

@@ -1,4 +1,4 @@
-# BOSS Zhipin Scraper · Job Collector v2.7 (Chrome CDP / Codex Skill)
+# boss-zhipin-job-research v2.7 (Chrome CDP / Codex Skill)
 
 > 🌐 中文文档：[README.md](./README.md)
 
@@ -8,6 +8,10 @@
 ![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
 A lightweight **BOSS Zhipin scraper / crawler** for [zhipin.com](https://www.zhipin.com). It connects to a dedicated, locally logged-in Chrome over CDP and calls the in-page search API. The current release keeps the original JSON / CSV CLI and adds resumable SQLite tasks, AI-assisted full-JD review, qualified-job Excel export, and a local Streamlit task UI.
+
+The canonical source and maintenance repository is
+[yeyeyeyeye-source/boss-zhipin-job-research](https://github.com/yeyeyeyeye-source/boss-zhipin-job-research).
+See [Project provenance](docs/provenance.md) for origin and MIT attribution.
 
 v2.5 also provides a Codex Skill. It previews the exact user strategy before execution, never expands search keywords, runs detail collection and AI review concurrently, and applies strict full-JD relevance checks to any confirmed target role.
 
@@ -25,8 +29,8 @@ This project is for **learning and technical research purposes only**. It is int
 
 ```bash
 # 1. Clone + install deps
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 uv sync --locked
 
 # 2. Launch an isolated Chrome and log in (only once; session persists)
@@ -69,6 +73,8 @@ python -m boss_app.cli export --run-id <RUN_ID>
 
 Across Runs, a global catalog deduplicates jobs by platform ID and normalized URL. Full JDs are reused globally, while AI decisions remain strategy-scoped. Every controlled Run freezes its qualified/review projection and produces an independent cumulative `RunNNN` workbook even when some cities remain unfinished. Re-export reads that frozen projection, so Run002 can never change Run001. Re-running an identical completed strategy returns its latest workbook with zero BOSS requests; only `--refresh` starts a new Cycle. `--ai-only` performs no BOSS operation, and `export` creates no Run.
 
+When a user pauses a Strategy task, its current Run stays `running` and neither freezes a snapshot nor exports an unfinished result. The next explicit execution of the same strategy reuses that Run, its remaining request budget, and its saved checkpoints. Strategy tasks can be inspected and paused in Streamlit, but the generic task controls cannot expand, resume, or retry AI for them; use the Codex Skill or `boss-jobs run` so recovery keeps the original Run snapshot and budget boundaries.
+
 Strategy tasks use a single-page pipeline: fetch one list page, process that page's full JDs and AI decisions, and only then decide whether another page is needed. BOSS list and detail operations remain serial; only the existing single AI worker may overlap with detail collection. A resumed task drains saved detail and AI backlog before expanding the list.
 
 `--refresh` is only valid after the current Cycle has completed. An unfinished Cycle or crash-resumable Run must first continue in its original mode, so refresh cannot skip saved checkpoints. `--ai-only` never takes over a running full Run and never clears an earlier access-restoration gate.
@@ -80,7 +86,7 @@ Page-state evidence is evaluated one minimal visible text unit at a time outside
 
 ## Local Data and Privacy
 
-The GitHub repository contains the application and database schema, not a user's database, job results, logs, secrets, or Chrome login state. A new checkout on the same computer continues to use `~/.boss-zhipin-scraper/boss_jobs.db` by default. On another computer, the application creates a new empty database and initializes its schema on first use.
+The GitHub repository contains the application and database schema, not a user's database, job results, logs, secrets, or Chrome login state. A new checkout on the same computer continues to use `~/.boss-zhipin-job-research/boss_jobs.db` by default. On another computer, the application creates a new empty database and initializes its schema on first use.
 
 Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`. See [Local runtime data](docs/runtime-data.md) for storage, backup, and restore boundaries, and [Architecture](docs/architecture.md) for the current v2.7 data flow.
 
@@ -146,8 +152,8 @@ For candidates already inserted into the same task from a trusted offline source
 The v2.7 Skill entry point depends on `boss_app/`, `scripts/`, `data/`, and the project dependencies. Downloading only `SKILL.md` or individual scripts is not sufficient. Clone the complete repository:
 
 ```bash
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 uv sync --locked
 uv run python scripts/boss_cdp_raw.py --help
 ```
@@ -159,9 +165,9 @@ If `uv` is unavailable, create `.venv` with Python 3.10+ and install `requiremen
 Clone the **complete repository** into the Codex skills directory, then create its dependency environment:
 
 ```bash
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git \
-  ~/.codex/skills/boss-zhipin-scraper
-cd ~/.codex/skills/boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git \
+  ~/.codex/skills/boss-zhipin-job-research
+cd ~/.codex/skills/boss-zhipin-job-research
 uv sync --locked
 ```
 
@@ -173,8 +179,8 @@ You don't have to install it as a Skill — use it as a plain CLI:
 
 ```bash
 # 1. Clone + install deps
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 pip install -r requirements.txt
 
 # 2. Start Chrome CDP
@@ -218,8 +224,8 @@ python3 scripts/job_summary.py --top 15
 | `--login-timeout` | Seconds to wait for login under `--setup-chrome` (default 300) |
 | `--stop-chrome` | Close the dedicated BOSS CDP Chrome (matched precisely by the isolated profile; never touches your main Chrome) |
 | `--close-chrome` | Auto-close the dedicated Chrome after a scrape finishes normally (off by default; not triggered on errors, so the login state is kept) |
-| `--output` | List output path (default `~/.boss-zhipin-scraper/job-result/`) |
-| `--detail-output` | Detail output path (default `~/.boss-zhipin-scraper/job-result/`) |
+| `--output` | List output path (default `~/.boss-zhipin-job-research/job-result/`) |
+| `--detail-output` | Detail output path (default `~/.boss-zhipin-job-research/job-result/`) |
 | `--cdp-port` | CDP port (default 9222) |
 | `--scale/--salary/--experience/--degree` | Filters |
 
@@ -233,8 +239,8 @@ python3 scripts/job_summary.py
 
 # Specify list and detail files
 python3 scripts/job_summary.py \
-  --input ~/.boss-zhipin-scraper/job-result/boss_jobs_20260625_1200.json \
-  --details ~/.boss-zhipin-scraper/job-result/boss_details_20260625_1200.json \
+  --input ~/.boss-zhipin-job-research/job-result/boss_jobs_20260625_1200.json \
+  --details ~/.boss-zhipin-job-research/job-result/boss_details_20260625_1200.json \
   --top 15
 
 # Only emit the prompt
@@ -252,7 +258,7 @@ The summary covers: salary ranges, experience requirements, degree requirements,
 ## File Structure
 
 ```
-boss-zhipin-scraper/
+boss-zhipin-job-research/
 ├── app.py                # Local Streamlit task UI
 ├── boss_app/             # SQLite, worker, AI parser, and Excel services
 ├── SKILL.md              # Codex Skill definition
@@ -283,17 +289,17 @@ DOM extraction is not used for the list by default, since DOM salaries may be hi
 
 For detail pages, the scraper only extracts a section containing the job-description heading. Full-page `body` text is diagnostic input for detecting login walls and navigation shells and is never written directly as a JD. If the page contains the login-to-view-full-content marker, the crawl fails explicitly and stops before truncated text, recruiter metadata, company sections, or recommended jobs can be saved as a complete JD.
 
-`--input ... --analysis --no-detail` first loads `--detail-output`, then the `boss_details_*.json` with the same timestamp in the same dir as the input list, and finally the newest detail file under `~/.boss-zhipin-scraper/job-result`.
+`--input ... --analysis --no-detail` first loads `--detail-output`, then the `boss_details_*.json` with the same timestamp in the same dir as the input list, and finally the newest detail file under `~/.boss-zhipin-job-research/job-result`.
 
 ## Chrome Profile Security Policy
 
 `--setup-chrome` uses a persistent isolated profile by default — it neither symlinks nor copies your main Chrome data. First launch and subsequent launches only create or reuse this dedicated profile:
 
-- `~/.boss-zhipin-scraper/chrome-profile`
+- `~/.boss-zhipin-job-research/chrome-profile`
 
 Without an explicit `--output` or `--detail-output`, scraping results are saved under:
 
-- `~/.boss-zhipin-scraper/job-result`
+- `~/.boss-zhipin-job-research/job-result`
 
 On first use you must log in to BOSS Zhipin manually inside this dedicated Chrome. `--setup-chrome` waits for the login to finish and uses the search API to confirm it can get plaintext `salaryDesc` before returning. The session is stored inside the dedicated profile and survives reboots; re-running `--setup-chrome` does not wipe it and does not affect your main Chrome, Gmail, GitHub, or other accounts.
 
@@ -341,4 +347,4 @@ MIT
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=eatmoreduck/boss-zhipin-scraper&type=Date)](https://star-history.com/#eatmoreduck/boss-zhipin-scraper&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=yeyeyeyeye-source/boss-zhipin-job-research&type=Date)](https://star-history.com/#yeyeyeyeye-source/boss-zhipin-job-research&Date)

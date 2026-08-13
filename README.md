@@ -1,4 +1,4 @@
-# BOSS直聘爬虫 · 职位抓取工具 v2.7（Chrome CDP / Codex Skill）
+# boss-zhipin-job-research v2.7（Chrome CDP / Codex Skill）
 
 > 🌐 English documentation: [README.en.md](./README.en.md)
 
@@ -7,8 +7,9 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![Version](https://img.shields.io/badge/version-2.7.0-orange.svg)
 
-本项目基于 [eatmoreduck/boss-zhipin-scraper](https://github.com/eatmoreduck/boss-zhipin-scraper）
-进行修改和扩展。
+当前唯一源码与维护入口：
+[yeyeyeyeye-source/boss-zhipin-job-research](https://github.com/yeyeyeyeye-source/boss-zhipin-job-research)。
+项目来源与 MIT 版权说明见 [Project provenance](docs/provenance.md)。
 
 一个轻量的 **BOSS直聘爬虫（spider / crawler / scraper）**：通过 Chrome DevTools Protocol 连接本地已登录的专用 Chrome，复用真实登录态调用 zhipin.com 搜索 API。既保留原有 JSON / CSV CLI，也提供 SQLite 断点续跑、AI 结构化解析、Excel 导出和 Streamlit 本地任务面板。
 
@@ -31,8 +32,8 @@
 
 ```bash
 # 1. 克隆 + 装依赖
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 uv sync --locked
 
 # 2. 启动隔离 Chrome 并登录（只需一次，登录态持久保存）
@@ -75,6 +76,8 @@ python -m boss_app.cli export --run-id <RUN_ID>
 
 跨 Run 使用全局岗位目录按平台岗位 ID、规范化链接去重；完整 JD 全局复用，AI 判断按策略保存。每个受控收口的 Run 都冻结“截至本 Run”的合格行和待复核行，并生成独立 `RunNNN` 累计 Excel，即使城市尚未全部完成也会产出；后续补导出读取冻结快照，不会把 Run002 的数据混入 Run001。相同且已完成的策略默认零 BOSS 请求返回最新文件，只有 `--refresh` 才创建新 Cycle；`--ai-only` 不执行 BOSS 操作，`export` 不创建 Run。
 
+用户主动暂停 Strategy 任务时，当前 Run 保持 `running`，不冻结快照也不导出未收口结果；下一次按同一策略明确续跑会复用原 Run、原请求预算和已保存断点。Strategy 任务可在 Streamlit 中查看和暂停，但不能从通用任务按钮扩容、恢复或重试 AI；这些操作必须通过 Codex Skill 或 `boss-jobs run` 按原策略恢复，避免绕过 Run 快照和预算边界。
+
 Strategy 任务采用单页流水线：每次只获取一页列表，先将该页候选逐个抓取完整 JD 并完成 AI 判断，再决定是否请求下一页。BOSS 列表与详情始终串行，详情抓取期间仅允许现有单 AI Worker 与其重叠。恢复任务会先清理 SQLite 中已保存的详情和 AI 积压，不会先扩充新列表。
 
 `--refresh` 只用于已经完成的 Cycle；若当前 Cycle 或崩溃遗留 Run 尚未收口，必须先按原模式续跑，不能借刷新跳过断点。`--ai-only` 不会接管运行中的 full Run，也不会解除此前的访问限制确认门。
@@ -86,7 +89,7 @@ Strategy 任务采用单页流水线：每次只获取一页列表，先将该�
 
 ## 本地数据与隐私
 
-GitHub 仓库只保存程序和数据库结构，不包含用户的数据库、岗位结果、日志、密钥或 Chrome 登录状态。同一台电脑上的新 checkout 默认继续使用 `~/.boss-zhipin-scraper/boss_jobs.db`；在另一台电脑首次运行时，程序会创建一份新的空数据库并初始化表结构。
+GitHub 仓库只保存程序和数据库结构，不包含用户的数据库、岗位结果、日志、密钥或 Chrome 登录状态。同一台电脑上的新 checkout 默认继续使用 `~/.boss-zhipin-job-research/boss_jobs.db`；在另一台电脑首次运行时，程序会创建一份新的空数据库并初始化表结构。
 
 不要复制或提交 `.venv`。请使用 `uv sync --locked` 根据 `uv.lock` 重建环境。目录职责、备份与恢复方法见 [本地运行数据](docs/runtime-data.md)，当前 v2.7 数据流见 [架构说明](docs/architecture.md)。
 
@@ -135,7 +138,7 @@ Copy-Item .env.example .env
 <details>
 <summary>🔍 为什么不选 Selenium / Playwright 类爬虫？</summary>
 
-- Selenium/Playwright 会额外启动一套受控浏览器；本项目为了复用原作者明确登录的隔离 Chrome，选择了更轻量的 CDP 连接方式。
+- Selenium/Playwright 会额外启动一套受控浏览器；本项目为了复用运行者本人明确登录的隔离 Chrome，选择了更轻量的 CDP 连接方式。
 - 列表页调用同一页面使用的搜索 API，直接读取明文 `salaryDesc`，无需把受字体混淆影响的 DOM 薪资当作可信数据。
 - CDP 并不保证不会触发平台限制。程序遇到限制状态会保存进度并停止，不提供代理、多账号、验证码破解或请求指纹绕过。
 
@@ -148,8 +151,8 @@ Copy-Item .env.example .env
 v2.7 的 Skill 入口依赖 `boss_app/`、`scripts/`、`data/` 和项目依赖，不能只下载 `SKILL.md` 或单个脚本。请克隆完整仓库：
 
 ```bash
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 uv sync --locked
 uv run python scripts/boss_cdp_raw.py --help
 ```
@@ -161,9 +164,9 @@ uv run python scripts/boss_cdp_raw.py --help
 把**完整仓库**克隆到 Codex skills 目录，再在仓库内创建依赖环境：
 
 ```bash
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git \
-  ~/.codex/skills/boss-zhipin-scraper
-cd ~/.codex/skills/boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git \
+  ~/.codex/skills/boss-zhipin-job-research
+cd ~/.codex/skills/boss-zhipin-job-research
 uv sync --locked
 ```
 
@@ -175,8 +178,8 @@ uv sync --locked
 
 ```bash
 # 1. 克隆 + 安装依赖
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 pip install -r requirements.txt
 
 # 2. 启动 Chrome CDP
@@ -220,8 +223,8 @@ python3 scripts/job_summary.py --top 15
 | `--login-timeout` | `--setup-chrome` 等待登录完成的秒数（默认 300） |
 | `--stop-chrome` | 关闭 BOSS 专用 CDP Chrome（按隔离 profile 精准匹配，不碰主 Chrome） |
 | `--close-chrome` | 抓取正常结束后自动关闭专用 Chrome（默认不关；异常退出不触发，保留登录态） |
-| `--output` | 列表输出路径（默认 `~/.boss-zhipin-scraper/job-result/`） |
-| `--detail-output` | 详情输出路径（默认 `~/.boss-zhipin-scraper/job-result/`） |
+| `--output` | 列表输出路径（默认 `~/.boss-zhipin-job-research/job-result/`） |
+| `--detail-output` | 详情输出路径（默认 `~/.boss-zhipin-job-research/job-result/`） |
 | `--cdp-port` | CDP 端口（默认 9222） |
 | `--scale/--salary/--experience/--degree` | 筛选条件 |
 
@@ -235,8 +238,8 @@ python3 scripts/job_summary.py
 
 # 指定列表和详情文件
 python3 scripts/job_summary.py \
-  --input ~/.boss-zhipin-scraper/job-result/boss_jobs_20260625_1200.json \
-  --details ~/.boss-zhipin-scraper/job-result/boss_details_20260625_1200.json \
+  --input ~/.boss-zhipin-job-research/job-result/boss_jobs_20260625_1200.json \
+  --details ~/.boss-zhipin-job-research/job-result/boss_details_20260625_1200.json \
   --top 15
 
 # 只输出提示词
@@ -285,17 +288,17 @@ boss-zhipin-job-research/
 
 详情页只从包含“职位描述”的详情区提取 JD，整页 `body` 仅用于识别登录墙和导航页，不会直接写入结果。若页面出现“登录查看完整内容”，抓取会明确报错并停止，避免把截断正文、招聘者信息、公司介绍和推荐职位当成完整 JD 保存。
 
-`--input ... --analysis --no-detail` 会优先加载 `--detail-output`，其次加载与输入列表同目录、同时间戳的 `boss_details_*.json`，最后查找 `~/.boss-zhipin-scraper/job-result` 下最新详情文件。
+`--input ... --analysis --no-detail` 会优先加载 `--detail-output`，其次加载与输入列表同目录、同时间戳的 `boss_details_*.json`，最后查找 `~/.boss-zhipin-job-research/job-result` 下最新详情文件。
 
 ## Chrome profile 安全策略
 
 `--setup-chrome` 默认使用持久隔离 profile，不软链接、不复制你的主 Chrome 数据。首次启动和后续重复启动都只是创建或复用这个专用 profile：
 
-- `~/.boss-zhipin-scraper/chrome-profile`
+- `~/.boss-zhipin-job-research/chrome-profile`
 
 未显式指定 `--output` 或 `--detail-output` 时，抓取结果默认保存到：
 
-- `~/.boss-zhipin-scraper/job-result`
+- `~/.boss-zhipin-job-research/job-result`
 
 首次使用需要在这个专用 Chrome 中手动登录 BOSS直聘。`--setup-chrome` 会等待登录完成，并用搜索接口确认能拿到明文 `salaryDesc` 后再返回。登录态保存在专用 profile 内，重启机器后仍然保留；重复运行 `--setup-chrome` 不会清空它，也不会影响主 Chrome、Gmail、GitHub 等账号。
 
@@ -343,4 +346,4 @@ MIT
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=eatmoreduck/boss-zhipin-scraper&type=Date)](https://star-history.com/#eatmoreduck/boss-zhipin-scraper&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=yeyeyeyeye-source/boss-zhipin-job-research&type=Date)](https://star-history.com/#yeyeyeyeye-source/boss-zhipin-job-research&Date)

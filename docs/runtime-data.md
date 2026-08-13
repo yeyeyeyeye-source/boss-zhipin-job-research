@@ -3,7 +3,7 @@
 Source code and private runtime data are intentionally separated. By default, runtime data lives under:
 
 ```text
-~/.boss-zhipin-scraper/
+~/.boss-zhipin-job-research/
 ├── boss_jobs.db            # Tasks, jobs, Strategy Runs, checkpoints
 ├── job-result/             # Incremental JSON and Excel exports
 ├── logs/                   # Worker logs

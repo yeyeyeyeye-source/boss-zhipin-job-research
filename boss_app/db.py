@@ -12,7 +12,7 @@ from typing import Any, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
 
-DEFAULT_DB_PATH = Path.home() / ".boss-zhipin-scraper" / "boss_jobs.db"
+DEFAULT_DB_PATH = Path.home() / ".boss-zhipin-job-research" / "boss_jobs.db"
 
 TASK_STATUSES = {
     "pending", "processing", "paused", "completed", "completed_with_errors",

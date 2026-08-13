@@ -1,21 +1,22 @@
 # 贡献指南
 
-感谢你对 boss-zhipin-scraper 的兴趣！无论是提 Issue、修 Bug 还是加功能，都欢迎。
+感谢你对 boss-zhipin-job-research 的兴趣！无论是修 Bug、改文档还是加功能，都欢迎。
 
 ## 行为准则
 
 请保持友善、尊重。技术讨论对事不对人，不接受任何人身攻击或骚扰言论。
 
-## 在贡献之前
+## 变更范围
 
-- **先开 Issue 再写代码**：修 Bug 或加新功能前，请先在 [Issues](../../issues) 里搜索是否已有人提过；没有的话新开一个，简要说明你打算做什么，避免和别人重复劳动或方向跑偏。
-- **一个 PR 只做一件事**：混合多个改动的 PR 很难 review，请拆开。
+- 一个 PR 聚焦一项可独立验证的改动。
+- 修 Bug 先补可复现测试；用户可见行为同步更新中英文 README 和 CHANGELOG。
+- Issue 可用于讨论不确定方案，但不是开始修改代码的强制门槛。
 
 ## 开发环境
 
 ```bash
-git clone https://github.com/eatmoreduck/boss-zhipin-scraper.git
-cd boss-zhipin-scraper
+git clone https://github.com/yeyeyeyeye-source/boss-zhipin-job-research.git
+cd boss-zhipin-job-research
 uv sync --locked
 uv run python -m unittest discover -s tests -v
 ```
@@ -26,7 +27,7 @@ uv run python -m unittest discover -s tests -v
 
 - **风格**：遵循 [PEP 8](https://peps.python.org/pep-0008/)，用 4 空格缩进、UTF-8、LF 换行。
 - **异常处理**：不要用 bare `except:`，必须捕获具体异常类型（`requests.ConnectionError`、`json.JSONDecodeError` 等），项目现有的代码就是这么做的，请保持一致。
-- **CDP 核心单文件原则**：浏览器/CDP、页面注入脚本和原 CLI 继续集中在 `scripts/boss_cdp_raw.py`。本地应用服务（SQLite、任务、worker、AI、Excel、登录映射）允许放在 `boss_app/`，Streamlit 入口为根目录 `app.py`；不要把 UI 或数据库逻辑塞回 CDP 核心。
+- **CDP 核心单文件原则**：浏览器/CDP、页面注入脚本和 CLI 继续集中在 `scripts/boss_cdp_raw.py`。本地应用服务（SQLite、任务、worker、AI、Excel、登录映射）放在 `boss_app/`，Streamlit 入口为根目录 `app.py`；不要把 UI 或数据库逻辑塞回 CDP 核心。
 - **注释**：复杂逻辑要写注释（参考 `human_scroll` 的做法）；公开函数补 docstring。
 
 ## 测试要求
@@ -71,6 +72,6 @@ chore: 杂项         例: chore: 升级依赖
 ## 有问题？
 
 - Bug / 功能建议 → [Issues](../../issues)
-- 不确定怎么改 → 先开 Issue 讨论
+- 不确定怎么改 → 可以先开 Issue 讨论
 
 再次感谢你的贡献！

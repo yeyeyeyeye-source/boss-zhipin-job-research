@@ -1,6 +1,6 @@
 # Architecture
 
-`boss-zhipin-scraper` is a deterministic local pipeline, not a pair of autonomous agents.
+`boss-zhipin-job-research` is a deterministic local pipeline, not a pair of autonomous agents.
 
 1. A confirmed CLI request becomes an immutable Strategy identity.
 2. `StrategyRunner` creates or resumes a Cycle and a Run with one persistent 500-request budget.

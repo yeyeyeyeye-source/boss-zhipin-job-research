@@ -76,8 +76,8 @@ class TaskManager:
             return self.popen(command, stdout=log_file, stderr=log_file, **kwargs)
 
     def start(self, task_id: str, ai_only: bool = False) -> bool:
-        self.database.recover_interrupted()
         self._require_standalone_task(task_id)
+        self.database.recover_interrupted()
         token = uuid.uuid4().hex
         if not self.database.reserve_worker(task_id, token):
             return False

@@ -147,7 +147,7 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertEqual(module.DEFAULT_CITY_INPUT, "上海")
         self.assertEqual(module.resolve_city(module.DEFAULT_CITY_INPUT), ("上海", "101020100"))
 
-    # ----- 本地静态城市码表（data/city_codes.json，见 issue #24）-----
+    # ----- 本地静态城市码表（data/city_codes.json）-----
 
     def test_local_city_map_loads_and_valid(self):
         """本地码表能加载、是字典、非空、value 全是数字字符串。"""
@@ -479,7 +479,7 @@ class ChromeSetupTests(unittest.TestCase):
                 module.LoginProbeStatus.RESTRICTED,
             ),
             (
-                # 实测风控码：已登录但被 BOSS 判「环境存在异常」（issue #33）
+                # 实测风控码：已登录但被 BOSS 判「环境存在异常」
                 {"code": 37, "message": "您的环境存在异常."},
                 module.LoginProbeStatus.RESTRICTED,
             ),
@@ -503,7 +503,7 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertEqual(restricted.code, 31)
         self.assertEqual(restricted.message, "访问受限")
 
-        # 已登录但被风控（issue #33）：必须归 RESTRICTED 而非误判为登录失败
+        # 已登录但被风控：必须归 RESTRICTED 而非误判为登录失败
         risk_control = module.classify_login_probe_response(
             {"code": 37, "message": "您的环境存在异常."}
         )
@@ -1426,7 +1426,7 @@ class ChromeSetupTests(unittest.TestCase):
         self.assertIn("已停止登录探测", stdout.getvalue())
 
     def test_wait_for_login_treats_code37_risk_control_as_restricted(self):
-        # issue #33：已登录但被 BOSS 风控（code 37「您的环境存在异常」），
+        # 已登录但被 BOSS 风控（code 37「您的环境存在异常」），
         # 必须走 RESTRICTED 文案分支，而非误判为不可恢复的登录失败。
         module = load_module()
         cdp = mock.Mock()
@@ -1538,18 +1538,18 @@ class ChromeSetupTests(unittest.TestCase):
             "CommandLine": (
                 r'"C:\Program Files\Google\Chrome\Application\chrome.exe" '
                 r'--remote-debugging-port=9333 '
-                r'--user-data-dir="C:\Users\test-user\.boss-zhipin-scraper\chrome-profile"'
+                r'--user-data-dir="C:\Users\test-user\.boss-zhipin-job-research\chrome-profile"'
             ),
         }])
         with mock.patch.object(module.platform, "system", return_value="Windows"), \
                 mock.patch.object(module.subprocess, "run", return_value=type("Completed", (), {"stdout": ps_json, "returncode": 0})()):
             self.assertEqual(
-                module.chrome_pids_for_user_data_dir(r"C:\Users\test-user\.boss-zhipin-scraper\chrome-profile"),
+                module.chrome_pids_for_user_data_dir(r"C:\Users\test-user\.boss-zhipin-job-research\chrome-profile"),
                 [456],
             )
             self.assertEqual(
                 module.chrome_user_data_dirs_for_cdp_port(9333),
-                [r"C:\Users\test-user\.boss-zhipin-scraper\chrome-profile"],
+                [r"C:\Users\test-user\.boss-zhipin-job-research\chrome-profile"],
             )
 
     def test_smoke_jobs_require_api_salary_and_link(self):

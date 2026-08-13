@@ -294,7 +294,7 @@ def export_strategy_run(
     try:
         target_dir = Path(
             output_dir
-            or Path.home() / ".boss-zhipin-scraper" / "job-result"
+            or Path.home() / ".boss-zhipin-job-research" / "job-result"
         ).expanduser()
         target_dir.mkdir(parents=True, exist_ok=True)
         filename = (
@@ -390,7 +390,7 @@ def export_tasks_to_excel(
         for job in all_jobs
         if job["crawl_status"] == "completed" and job["ai_status"] == "manual_review"
     ]
-    target_dir = Path(output_dir or Path.home() / ".boss-zhipin-scraper" / "job-result").expanduser()
+    target_dir = Path(output_dir or Path.home() / ".boss-zhipin-job-research" / "job-result").expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     city_name = "_".join(dict.fromkeys(item["city"] for item in tasks))
     filename = (
