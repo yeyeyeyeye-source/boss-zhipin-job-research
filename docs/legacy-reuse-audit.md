@@ -28,6 +28,10 @@ The following surfaces now use the current project and maintainer identity:
 Old issue numbers, old maintainer voice, stale handoff claims, and historical
 workflow artifacts are not current project rules.
 
+The imported `cover.png` was also removed because no current document or code
+referenced it; retaining an unbranded 1.86 MB orphan asset served no runtime or
+attribution purpose.
+
 ## What remains intentionally historical
 
 - the original copyright notice required by the MIT License;
