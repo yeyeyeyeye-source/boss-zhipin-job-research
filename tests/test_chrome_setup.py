@@ -31,13 +31,13 @@ class ChromeSetupTests(unittest.TestCase):
 
         self.assertNotEqual(module.DEFAULT_CDP_DATA_DIR, module.DEFAULT_PROFILE_DIR)
         self.assertNotIn("/tmp/", module.DEFAULT_CDP_DATA_DIR)
-        self.assertTrue(module.DEFAULT_CDP_DATA_DIR.endswith(".boss-zhipin-scraper/chrome-profile"))
+        self.assertTrue(module.DEFAULT_CDP_DATA_DIR.endswith(".boss-zhipin-job-research/chrome-profile"))
 
     def test_default_result_dir_is_persistent_user_state(self):
         module = load_module()
 
         self.assertNotIn("/tmp/", module.DEFAULT_RESULT_DIR)
-        self.assertTrue(module.DEFAULT_RESULT_DIR.endswith(".boss-zhipin-scraper/job-result"))
+        self.assertTrue(module.DEFAULT_RESULT_DIR.endswith(".boss-zhipin-job-research/job-result"))
         self.assertTrue(module.default_output_path("jobs").startswith(module.DEFAULT_RESULT_DIR))
         self.assertTrue(module.default_output_path("details").startswith(module.DEFAULT_RESULT_DIR))
         self.assertIn("boss_jobs_", module.default_output_path("jobs"))
@@ -2151,11 +2151,11 @@ class VersionConsistencyTests(unittest.TestCase):
 
         lock = self._read_text("uv.lock")
         m = re.search(
-            r'\[\[package\]\]\s+name = "boss-zhipin-scraper"\s+'
+            r'\[\[package\]\]\s+name = "boss-zhipin-job-research"\s+'
             r'version = "([^"]+)"\s+source = \{ editable = "\." \}',
             lock,
         )
-        self.assertIsNotNone(m, "uv.lock 未找到 editable boss-zhipin-scraper")
+        self.assertIsNotNone(m, "uv.lock 未找到 editable boss-zhipin-job-research")
         lock_ver = _normalize_version(m.group(1))
 
         self.assertEqual(script_ver, pyproject_ver,

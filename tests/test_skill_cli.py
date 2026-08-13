@@ -323,7 +323,7 @@ class CodexSkillContractTests(unittest.TestCase):
         skill = (root / "SKILL.md").read_text(encoding="utf-8")
         frontmatter = skill.split("---", 2)[1]
 
-        self.assertIn("name: boss-zhipin-scraper", frontmatter)
+        self.assertIn("name: boss-zhipin-job-research", frontmatter)
         self.assertIn("description:", frontmatter)
         self.assertNotIn("metadata:", frontmatter)
         self.assertNotIn("platforms:", frontmatter)
