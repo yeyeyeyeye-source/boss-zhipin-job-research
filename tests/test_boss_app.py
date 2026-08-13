@@ -18,6 +18,7 @@ from boss_app.job_type_parser import normalize_job_type
 from boss_app.login_manager import LoginManager, LoginState, LoginStatus
 from boss_app.salary_parser import parse_salary
 from boss_app.task_manager import TaskManager
+from boss_app.strategy_model import StrategySpec
 from boss_app.collector import Collector
 from scripts import boss_cdp_raw as core
 from openpyxl import load_workbook
@@ -750,6 +751,21 @@ class LoginManagerTests(unittest.TestCase):
 
 
 class TaskManagerTests(unittest.TestCase):
+    def _strategy_task(self, database):
+        spec = StrategySpec.create(
+            "AI产品经理", "AI产品经理", "exact_role", ["上海"],
+        )
+        strategy = database.get_or_create_strategy(spec)
+        return database.create_task(
+            "AI产品经理",
+            "上海",
+            target_role="AI产品经理",
+            target_type="exact_role",
+            strategy_id=strategy["strategy_id"],
+            scan_cycle=1,
+            first_run_id="run-owned",
+        )
+
     def test_start_reserves_worker_and_launches_module(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")
@@ -785,6 +801,50 @@ class TaskManagerTests(unittest.TestCase):
             self.assertTrue(manager.retry_ai(task_id))
 
             self.assertEqual(database.list_jobs(task_id)[0]["ai_status"], "irrelevant")
+
+    def test_generic_worker_controls_reject_strategy_tasks_without_mutation(self):
+        for action_name in ("start", "resume", "expand", "retry_ai"):
+            with self.subTest(action=action_name), tempfile.TemporaryDirectory() as directory:
+                database = Database(Path(directory) / "jobs.db")
+                task_id = self._strategy_task(database)
+                database.upsert_job(task_id, {
+                    "job_id": "saved",
+                    "encrypt_job_id": "stable-saved",
+                    "title": "岗位",
+                    "job_link": "https://www.zhipin.com/job_detail/stable-saved.html",
+                })
+                database.update_job(
+                    task_id, "saved", crawl_status="completed", ai_status="failed",
+                )
+                process = mock.Mock(pid=4321)
+                manager = TaskManager(
+                    database, popen=mock.Mock(return_value=process),
+                )
+                before_task = database.get_task(task_id)
+                before_job = database.list_jobs(task_id)[0]
+                actions = {
+                    "start": lambda: manager.start(task_id),
+                    "resume": lambda: manager.resume(task_id),
+                    "expand": lambda: manager.expand(
+                        task_id,
+                        max_jobs=99,
+                        max_pages=15,
+                        run_mode="自定义数量",
+                    ),
+                    "retry_ai": lambda: manager.retry_ai(task_id),
+                }
+
+                action = actions[action_name]
+                with self.assertRaisesRegex(RuntimeError, "Strategy Runner"):
+                    action()
+
+                after_task = database.get_task(task_id)
+                after_job = database.list_jobs(task_id)[0]
+                self.assertEqual(after_task["max_jobs"], before_task["max_jobs"])
+                self.assertEqual(after_task["max_pages"], before_task["max_pages"])
+                self.assertEqual(after_task["status"], before_task["status"])
+                self.assertEqual(after_job["ai_status"], before_job["ai_status"])
+                manager.popen.assert_not_called()
 
 
 class _ConfiguredFailingParser:
