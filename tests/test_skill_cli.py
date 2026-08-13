@@ -284,6 +284,23 @@ class SkillCliTests(unittest.TestCase):
                 str(output),
             )
 
+    def test_pure_export_refuses_a_running_run(self):
+        from boss_app.cli import export_existing_run
+        from boss_app.strategy_model import StrategySpec
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "jobs.db")
+            spec = StrategySpec.create(
+                "AI运营", "AI运营", "exact_role", ["北京"],
+            )
+            strategy = database.get_or_create_strategy(spec)
+            run, _ = database.create_or_resume_run(
+                strategy["strategy_id"], 1,
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "running"):
+                export_existing_run(database, run["run_id"], directory)
+
     def test_cli_requires_explicit_execute_flag(self):
         from boss_app.cli import main
 

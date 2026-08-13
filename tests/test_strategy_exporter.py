@@ -57,6 +57,22 @@ class StrategyExporterTests(unittest.TestCase):
             bonus_points=["无"],
         )
 
+    def test_running_run_cannot_freeze_or_export(self):
+        with self.assertRaisesRegex(RuntimeError, "running"):
+            freeze_strategy_run_snapshot(
+                self.database,
+                self.strategy["strategy_id"],
+                self.run_one["run_id"],
+            )
+
+        with self.assertRaisesRegex(RuntimeError, "running"):
+            export_strategy_run(
+                self.database,
+                self.strategy["strategy_id"],
+                self.run_one["run_id"],
+                self.directory,
+            )
+
     def test_each_run_gets_an_independent_cumulative_snapshot(self):
         self._save_job("一")
         first = export_strategy_run(

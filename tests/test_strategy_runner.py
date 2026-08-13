@@ -226,6 +226,68 @@ class StrategyRunnerTests(unittest.TestCase):
         self.assertEqual(result.run_number, 1)
         self.assertEqual(result.request_used, 17)
 
+    def test_paused_task_keeps_run_resumable_without_export(self):
+        class PausingCollector(_CompletingCollector):
+            def run(self, task_id, token):
+                self.request_budget.reserve("detail")
+                self.database.update_task(
+                    task_id, status="paused", pause_requested=1,
+                )
+
+        runner = StrategyRunner(
+            self.database,
+            collector_factory=lambda db: PausingCollector(db, self.events),
+            export_fn=self.exporter,
+            heartbeat_interval=0.01,
+        )
+
+        result = runner.execute(self.spec, output_dir=self.directory)
+
+        run = self.database.get_run(result.run_id)
+        self.assertEqual(result.status, "paused")
+        self.assertIsNone(result.output_path)
+        self.assertEqual(run["status"], "running")
+        self.assertEqual(run["request_used"], 1)
+        self.assertIsNone(run["finished_at"])
+        self.assertIsNone(run["export_rows_json"])
+        self.assertIsNone(run["worker_token"])
+        self.assertIsNone(self.database.get_task(result.task_ids[0])["worker_token"])
+        self.exporter.assert_not_called()
+
+    def test_paused_run_resumes_same_id_budget_and_clears_pause(self):
+        class PauseOnceCollector(_CompletingCollector):
+            attempts = 0
+
+            def run(self, task_id, token):
+                if type(self).attempts == 0:
+                    type(self).attempts += 1
+                    for _ in range(7):
+                        self.request_budget.reserve("detail")
+                    self.database.update_task(
+                        task_id, status="paused", pause_requested=1,
+                    )
+                    return
+                super().run(task_id, token)
+
+        runner = StrategyRunner(
+            self.database,
+            collector_factory=lambda db: PauseOnceCollector(db, self.events),
+            export_fn=self.exporter,
+            heartbeat_interval=0.01,
+        )
+
+        first = runner.execute(self.spec, output_dir=self.directory)
+        second = runner.execute(self.spec, output_dir=self.directory)
+
+        self.assertEqual(first.status, "paused")
+        self.assertEqual(second.status, "completed")
+        self.assertEqual(second.run_id, first.run_id)
+        self.assertEqual(second.run_number, first.run_number)
+        self.assertEqual(second.request_used, 7)
+        self.assertEqual(
+            self.database.get_task(first.task_ids[0])["pause_requested"], 0,
+        )
+
     def test_ai_only_rejects_a_running_full_run_without_boss_work(self):
         strategy = self.database.get_or_create_strategy(self.spec)
         run, _ = self.database.create_or_resume_run(
