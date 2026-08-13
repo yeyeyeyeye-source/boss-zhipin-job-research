@@ -118,6 +118,7 @@ def main() -> None:
     st.session_state["active_task_id"] = selected_id
 
     selected_task = database.get_task(selected_id)
+    strategy_owned = bool(selected_task and selected_task["strategy_id"])
     existing_count = len(database.list_jobs(selected_id))
     selected_snapshot = manager.snapshot(selected_id)
     qualified_target = bool(
@@ -129,6 +130,11 @@ def main() -> None:
         st.warning(
             "平台当前限制访问，任务已保存进度并停止所有后续请求。"
             "请暂停一段时间，确认平台恢复后再点击“恢复/继续任务”；程序不会自动循环重试。"
+        )
+    if strategy_owned:
+        st.info(
+            "这是策略任务。请通过 Codex Skill 或 `boss-jobs run` 按原策略恢复，"
+            "以继续同一个 Run 和请求预算；普通 Streamlit worker 不会接管该任务。"
         )
 
     with st.expander("扩大或调整当前历史任务"):
@@ -150,7 +156,9 @@ def main() -> None:
                 "新的最大抓取页数", min_value=1, max_value=core.MAX_PAGES,
                 value=int((selected_task or {}).get("max_pages", 1)),
             )
-            expand_submitted = st.form_submit_button("保存参数并从断点继续")
+            expand_submitted = st.form_submit_button(
+                "保存参数并从断点继续", disabled=strategy_owned,
+            )
         if expand_submitted:
             try:
                 expanded_jobs = resolve_job_limit(expanded_mode, int(expanded_custom_jobs))
@@ -171,12 +179,18 @@ def main() -> None:
     if action_columns[0].button("暂停任务", use_container_width=True):
         manager.pause(selected_id)
         st.info("已请求暂停，将在当前网络步骤结束后生效")
-    if action_columns[1].button("恢复/继续任务", use_container_width=True):
+    if action_columns[1].button(
+        "恢复/继续任务",
+        use_container_width=True,
+        disabled=strategy_owned,
+    ):
         if manager.resume(selected_id):
             st.success("任务已继续")
         else:
             st.warning("worker 尚未释放或已有其他任务运行")
-    if action_columns[2].button("仅重试 AI", use_container_width=True):
+    if action_columns[2].button(
+        "仅重试 AI", use_container_width=True, disabled=strategy_owned,
+    ):
         if manager.retry_ai(selected_id):
             st.success("AI 重处理已启动")
         else:

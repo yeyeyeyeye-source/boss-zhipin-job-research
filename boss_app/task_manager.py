@@ -43,6 +43,16 @@ class TaskManager:
         self.log_dir = database.path.parent / "logs"
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
+    def _require_standalone_task(self, task_id: str) -> dict[str, Any]:
+        task = self.database.get_task(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        if task["strategy_id"]:
+            raise RuntimeError(
+                "策略任务必须通过 Strategy Runner 按原策略恢复"
+            )
+        return task
+
     def _spawn(self, task_id: str, token: str, ai_only: bool = False) -> subprocess.Popen:
         command = [
             sys.executable, "-m", "boss_app.worker", "--task-id", task_id,
@@ -67,8 +77,7 @@ class TaskManager:
 
     def start(self, task_id: str, ai_only: bool = False) -> bool:
         self.database.recover_interrupted()
-        if self.database.get_task(task_id) is None:
-            raise KeyError(task_id)
+        self._require_standalone_task(task_id)
         token = uuid.uuid4().hex
         if not self.database.reserve_worker(task_id, token):
             return False
@@ -84,6 +93,7 @@ class TaskManager:
         self.database.update_task(task_id, pause_requested=1)
 
     def resume(self, task_id: str) -> bool:
+        self._require_standalone_task(task_id)
         self.database.update_task(task_id, pause_requested=0, status="pending", error_message="")
         return self.start(task_id)
 
@@ -91,12 +101,14 @@ class TaskManager:
         self, task_id: str, *, max_jobs: int, max_pages: int, run_mode: str,
     ) -> bool:
         """Update a stopped task's target and resume from its saved jobs."""
+        self._require_standalone_task(task_id)
         self.database.update_task_limits(
             task_id, max_jobs=max_jobs, max_pages=max_pages, run_mode=run_mode,
         )
         return self.resume(task_id)
 
     def retry_ai(self, task_id: str) -> bool:
+        self._require_standalone_task(task_id)
         with self.database.connect() as connection:
             connection.execute(
                 """UPDATE jobs SET ai_status='waiting_for_ai', ai_error='', updated_at=?
