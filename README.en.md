@@ -94,7 +94,7 @@ Do not copy or commit `.venv`. Rebuild it from `uv.lock` with `uv sync --locked`
 
 ## Local Streamlit Job Collector
 
-v2.4.0 provides a local app around the existing CLI. Streamlit only creates tasks, reads SQLite, and launches a separate worker; it never runs the blocking collection loop in the UI process. A SQLite lease permits only one active worker at a time.
+The local app wraps the existing CLI. Streamlit only creates tasks, reads SQLite, and launches a separate worker; it never runs the blocking collection loop in the UI process. A SQLite lease permits only one active worker at a time. A new task accepts any target role and a user-defined target job count up to 450. The role is used both as the search keyword and as the exact-role AI review target for each complete JD. Development test modes and page controls are no longer exposed; every task uses the internal ceiling of 15 pages with 30 candidates per page.
 
 ```powershell
 python -m venv .venv
@@ -106,11 +106,7 @@ Copy-Item .env.example .env
 
 On first use, log in only inside the dedicated BOSS Chrome window. Process management matches its exact `--user-data-dir` and never closes the main Chrome profile. AI configuration comes from local `BOSS_AI_API_KEY`, `BOSS_AI_BASE_URL`, and `BOSS_AI_MODEL` values in `.env`; no account, password, or verification code is stored. Without AI configuration, discovered candidates and already saved full JDs remain intact, but the task enters `waiting_for_ai` and pauses later detail collection until AI is configured; an AI-only retry can then continue locally.
 
-The UI defaults to “AI运营 / nationwide / 10 pages / 50-job scale” and also offers 10-job validation, 20-job stability, 100-job batch, and custom job-count modes; the page limit is entered separately and capped at 15 pages per run. Historical tasks can still be expanded in place: `completed` rows are not processed again, abandoned `processing` rows return to `pending`, and failed details stop at the configured retry limit.
-
-Nationwide `AI运营` tasks use a qualified-count gate. Every candidate must have a complete JD, and the existing single AI request returns `is_ai_operations` together with responsibilities, requirements, and bonus points. Only `crawl_status='completed' AND ai_status='completed'` counts toward the target of 50. AI-product sales, CIO, pure product-manager, AI-trainer, or incidental AI mentions are stored as `irrelevant` for deduplication and audit, but are not retried, exported, or counted as failures. If the configured pages are exhausted or a round adds no candidates before 50 qualified jobs are reached, the task becomes `incomplete` rather than completed.
-
-City `AI产品运营` tasks send each saved full JD to one AI worker. Detail collection remains serial, but it can fetch the next detail while that worker processes the previous JD; AI calls never fan out concurrently. AI sales, ordinary product-manager roles, generic operations roles, and incidental AI mentions are marked `irrelevant`; they remain available for deduplication and audit but are excluded from Excel. The 15-page / 450-candidate setting is a per-city scan ceiling, not a qualified-job target, so an exhausted city task completes without replenishing toward 450 qualified jobs.
+All newly created Streamlit tasks use a qualified-count gate. Every candidate must have a complete JD, and one AI request classifies it as matched, irrelevant, or manual review against the user-entered role while also extracting responsibilities, requirements, and bonus points. Only `crawl_status='completed' AND ai_status='completed'` counts toward the target job count. Irrelevant candidates remain available for deduplication and audit but are not counted or exported. If the internal page ceiling is exhausted or a round adds no candidates before the requested qualified count is reached, the task becomes `incomplete` rather than completed. Detail collection remains serial, but it can fetch the next detail while the single AI worker processes the previous JD; AI calls never fan out concurrently. Historical tasks can still be expanded in place without reprocessing completed rows.
 
 The list API's city name is preferred and detail addresses cannot overwrite it, so districts, streets, business areas, and full addresses are not stored or exported for the nationwide task. Excel contains qualified jobs only and has exactly seven columns: job title, city, salary range, responsibilities, requirements, bonus points, and job URL. The three summary cells use numbered line breaks; missing bonus points render as `无`.
 
@@ -129,9 +125,9 @@ For candidates already inserted into the same task from a trusted offline source
 - Aggregated summary + copy-paste prompt after scraping
 - Incremental writes (no data loss on crash)
 - SQLite task state machine, isolated worker, single-instance lease, and pause/resume
-- Staged limits, in-place historical expansion, dual deduplication, and access-limit recovery
-- One OpenAI-compatible request for full-JD AI-operations relevance review and summaries
-- Qualified-count target of 50 with `irrelevant` audit rows and `incomplete` exhaustion state
+- User-defined target count, in-place historical expansion, dual deduplication, and access-limit recovery
+- One OpenAI-compatible request for target-role relevance review and full-JD summaries
+- User-defined qualified target job count with `irrelevant` audit rows and `incomplete` exhaustion state
 - City-only storage and fixed seven-column Excel with numbered summaries and clickable links
 - Local Streamlit dashboard with a two-second read-only status refresh
 - One-shot environment check + persistent isolated Chrome CDP profile

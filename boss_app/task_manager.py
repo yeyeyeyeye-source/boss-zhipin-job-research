@@ -10,6 +10,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from scripts import boss_cdp_raw as core
+
 from .db import Database, utc_now
 
 
@@ -30,6 +32,34 @@ def resolve_job_limit(run_mode: str, custom_jobs: int | None = None) -> int:
     if limit < 1:
         raise ValueError("自定义岗位数量必须大于 0")
     return limit
+
+
+def create_target_task(
+    database: Database,
+    *,
+    keyword: str,
+    city: str,
+    salary_filter: str,
+    experience_filter: str,
+    degree_filter: str,
+    target_jobs: int,
+) -> str:
+    role = str(keyword or "").strip()
+    job_limit = int(target_jobs)
+    if not 1 <= job_limit <= core.MAX_TASK_JOBS:
+        raise ValueError(f"目标岗位数量必须在 1 到 {core.MAX_TASK_JOBS} 之间")
+    return database.create_task(
+        keyword=role,
+        city=city,
+        salary_filter=salary_filter,
+        experience_filter=experience_filter,
+        degree_filter=degree_filter,
+        max_pages=core.MAX_PAGES,
+        max_jobs=job_limit,
+        run_mode="自定义数量",
+        target_role=role,
+        target_type="exact_role",
+    )
 
 
 class TaskManager:
@@ -113,7 +143,7 @@ class TaskManager:
             connection.execute(
                 """UPDATE jobs SET ai_status='waiting_for_ai', ai_error='', updated_at=?
                 WHERE task_id=? AND crawl_status='completed'
-                AND ai_status NOT IN ('completed', 'irrelevant')""",
+                AND ai_status NOT IN ('completed', 'irrelevant', 'manual_review')""",
                 (utc_now(), task_id),
             )
         self.database.update_task(task_id, pause_requested=0, status="pending", error_message="")

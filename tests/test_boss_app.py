@@ -10,14 +10,14 @@ from pathlib import Path
 from boss_app import db as db_module
 from boss_app.db import Database, uses_qualified_target, utc_now
 from boss_app.ai_parser import (
-    AIConfig, AIParseError, JDParser, ParsedJD, validate_payload,
+    AIConfig, AIParseError, JDParser, ParsedJD, TargetParsedJD, validate_payload,
     validate_target_payload,
 )
 from boss_app.exporter import EXCEL_COLUMNS, export_task_to_excel, export_tasks_to_excel
 from boss_app.job_type_parser import normalize_job_type
 from boss_app.login_manager import LoginManager, LoginState, LoginStatus
 from boss_app.salary_parser import parse_salary
-from boss_app.task_manager import TaskManager
+from boss_app.task_manager import TaskManager, create_target_task
 from boss_app.strategy_model import StrategySpec
 from boss_app.collector import Collector
 from scripts import boss_cdp_raw as core
@@ -26,13 +26,10 @@ from openpyxl import load_workbook
 
 class RunModeTests(unittest.TestCase):
     def test_run_modes_resolve_fixed_and_custom_limits(self):
-        from boss_app import task_manager as task_manager_module
+        from boss_app.task_manager import RUN_MODE_LIMITS, resolve_job_limit
 
-        resolver = getattr(task_manager_module, "resolve_job_limit", None)
-        limits = getattr(task_manager_module, "RUN_MODE_LIMITS", None)
-        self.assertIsNotNone(resolver, "缺少分阶段运行数量解析器")
         self.assertEqual(
-            limits,
+            RUN_MODE_LIMITS,
             {
                 "10条验证": 10,
                 "20条稳定性测试": 20,
@@ -41,11 +38,20 @@ class RunModeTests(unittest.TestCase):
                 "自定义数量": None,
             },
         )
-        self.assertEqual(resolver("10条验证", 999), 10)
-        self.assertEqual(resolver("100条批量测试", 1), 100)
-        self.assertEqual(resolver("自定义数量", 137), 137)
+        self.assertEqual(resolve_job_limit("10条验证", 999), 10)
+        self.assertEqual(resolve_job_limit("100条批量测试", 1), 100)
+        self.assertEqual(resolve_job_limit("自定义数量", 137), 137)
         with self.assertRaises(ValueError):
-            resolver("自定义数量", 0)
+            resolve_job_limit("自定义数量", 0)
+
+
+class QualifiedTargetTests(unittest.TestCase):
+    def test_explicit_target_role_uses_ai_qualified_count(self):
+        self.assertTrue(uses_qualified_target("Python开发", "上海", "Python开发"))
+
+    def test_legacy_national_ai_operations_remains_compatible(self):
+        self.assertTrue(uses_qualified_target("AI运营", "全国"))
+        self.assertFalse(uses_qualified_target("AI运营", "深圳"))
 
 
 class SalaryParserTests(unittest.TestCase):
@@ -204,6 +210,29 @@ class DatabaseTests(unittest.TestCase):
         task = self.db.get_task(task_id)
         self.assertEqual(task["max_jobs"], 55)
         self.assertEqual(len(self.db.list_jobs(task_id)), 60)
+
+    def test_explicit_target_expansion_uses_qualified_count(self):
+        task_id = self.db.create_task(
+            "Python开发", "上海", max_jobs=10,
+            target_role="Python开发", target_type="exact_role",
+        )
+        for index in range(12):
+            job_id = f"python-{index}"
+            self.db.upsert_job(task_id, {"job_id": job_id, "title": f"候选 {index}"})
+            self.db.update_job(
+                task_id,
+                job_id,
+                crawl_status="completed",
+                ai_status="completed" if index < 5 else "irrelevant",
+            )
+
+        self.db.update_task_limits(
+            task_id, max_jobs=8, max_pages=core.MAX_PAGES, run_mode="自定义数量",
+        )
+
+        task = self.db.get_task(task_id)
+        self.assertEqual(task["max_jobs"], 8)
+        self.assertEqual(len(self.db.list_jobs(task_id)), 12)
 
     def test_schema_migration_preserves_existing_jobs(self):
         for index in range(10):
@@ -405,6 +434,64 @@ class AIParserTests(unittest.TestCase):
 
 
 class GenericTargetDatabaseTests(unittest.TestCase):
+    def test_streamlit_task_builder_rejects_target_count_outside_scan_ceiling(self):
+        from boss_app.task_manager import create_target_task
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "jobs.db")
+
+            for target_jobs in (0, core.MAX_TASK_JOBS + 1):
+                with self.subTest(target_jobs=target_jobs), self.assertRaises(ValueError):
+                    create_target_task(
+                        database,
+                        keyword="Python 开发",
+                        city="上海",
+                        salary_filter="",
+                        experience_filter="",
+                        degree_filter="",
+                        target_jobs=target_jobs,
+                    )
+
+    def test_streamlit_task_builder_persists_generic_target_contract(self):
+        from boss_app.task_manager import create_target_task
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "jobs.db")
+
+            task_id = create_target_task(
+                database,
+                keyword=" Python 开发 ",
+                city="上海",
+                salary_filter="",
+                experience_filter="",
+                degree_filter="",
+                target_jobs=450,
+            )
+
+            task = database.get_task(task_id)
+            self.assertEqual(task["keyword"], "Python 开发")
+            self.assertEqual(task["target_role"], "Python 开发")
+            self.assertEqual(task["target_type"], "exact_role")
+            self.assertEqual(task["max_jobs"], 450)
+            self.assertEqual(task["max_pages"], core.MAX_PAGES)
+            self.assertEqual(task["run_mode"], "自定义数量")
+            self.assertTrue(Collector._requires_ai_operations_gate(task))
+
+    def test_strategy_task_keeps_candidate_count_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Database(Path(directory) / "jobs.db")
+            spec = StrategySpec.create(
+                "Python开发", "Python开发", "exact_role", ["上海"],
+            )
+            strategy = database.get_or_create_strategy(spec)
+            task_id = database.ensure_strategy_tasks(
+                strategy["strategy_id"], 1, spec, first_run_id="run",
+            )[0]
+
+            task = database.get_task(task_id)
+
+            self.assertFalse(Collector._requires_ai_operations_gate(task))
+
     def test_target_fields_and_manual_review_are_additive(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")
@@ -802,20 +889,28 @@ class TaskManagerTests(unittest.TestCase):
             TaskManager(database, popen=mock.Mock()).pause(task_id)
             self.assertEqual(database.get_task(task_id)["pause_requested"], 1)
 
-    def test_retry_ai_does_not_requeue_irrelevant_jobs(self):
+    def test_retry_ai_does_not_requeue_terminal_ai_decisions(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")
             task_id = database.create_task("AI运营", "全国")
-            database.upsert_job(task_id, {"job_id": "rejected", "title": "AI销售"})
-            database.update_job(
-                task_id, "rejected", crawl_status="completed", ai_status="irrelevant",
-            )
+            for job_id, ai_status in (
+                ("rejected", "irrelevant"),
+                ("review", "manual_review"),
+            ):
+                database.upsert_job(task_id, {"job_id": job_id, "title": job_id})
+                database.update_job(
+                    task_id, job_id, crawl_status="completed", ai_status=ai_status,
+                )
             process = mock.Mock(pid=4321)
             manager = TaskManager(database, popen=mock.Mock(return_value=process))
 
             self.assertTrue(manager.retry_ai(task_id))
 
-            self.assertEqual(database.list_jobs(task_id)[0]["ai_status"], "irrelevant")
+            statuses = {
+                job["job_id"]: job["ai_status"] for job in database.list_jobs(task_id)
+            }
+            self.assertEqual(statuses["rejected"], "irrelevant")
+            self.assertEqual(statuses["review"], "manual_review")
 
     def test_generic_worker_controls_reject_strategy_tasks_without_mutation(self):
         for action_name in ("start", "resume", "expand", "retry_ai"):
@@ -887,6 +982,20 @@ class _RelevanceParser:
             job_type="全职",
             job_responsibilities=["负责 AI 运营"],
             job_requirements=["具备运营经验"],
+            bonus_points=["无"],
+        )
+
+    def parse_target(self, full_jd, *, target_role, target_type, context=None):
+        self.calls.append((full_jd, target_role, target_type, context))
+        index = int((context or {})["job_name"].rsplit(" ", 1)[-1])
+        return TargetParsedJD(
+            match_status="matched" if index >= 10 else "irrelevant",
+            role_category=target_role,
+            relevance_reason="核心职责与目标一致" if index >= 10 else "核心职责不符",
+            relevance_confidence=0.95,
+            job_type="全职",
+            job_responsibilities=["负责 Python 开发"],
+            job_requirements=["具备开发经验"],
             bonus_points=["无"],
         )
 
@@ -1374,11 +1483,17 @@ class CollectorTests(unittest.TestCase):
             )
             self.assertEqual(events[12:], ["list"])
 
-    def test_national_ai_operations_replenishes_rejected_candidates_to_fifty(self):
+    def test_generic_target_replenishes_rejected_candidates_to_fifty(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")
-            task_id = database.create_task(
-                "AI运营", "全国", max_pages=10, max_jobs=50,
+            task_id = create_target_task(
+                database,
+                keyword="Python开发",
+                city="上海",
+                salary_filter="",
+                experience_filter="",
+                degree_filter="",
+                target_jobs=50,
             )
             token = "worker"
             self.assertTrue(database.reserve_worker(task_id, token))
@@ -1393,7 +1508,7 @@ class CollectorTests(unittest.TestCase):
                     next_index += 1
                     kwargs["on_job"]({
                         "job_id": f"job-{index}",
-                        "title": f"AI运营 {index}",
+                        "title": f"Python开发 {index}",
                         "city_name": "上海",
                         "location": "上海·浦东新区",
                         "job_link": f"https://example.test/job/{index}",
@@ -1405,7 +1520,7 @@ class CollectorTests(unittest.TestCase):
                 "title": job["title"],
                 "location": "上海·浦东新区·张江",
                 "salary": "20-30K",
-                "jd": "完整岗位描述：负责 AI 运营工作",
+                "jd": "完整岗位描述：负责 Python 开发工作",
                 "detail_url": job["job_link"],
             }
             collector = Collector(
@@ -1432,11 +1547,17 @@ class CollectorTests(unittest.TestCase):
                 job["city"] == "上海" for job in database.list_jobs(task_id)
             ))
 
-    def test_national_ai_operations_without_new_candidates_is_incomplete(self):
+    def test_generic_target_without_new_candidates_is_incomplete(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Database(Path(directory) / "jobs.db")
-            task_id = database.create_task(
-                "AI运营", "全国", max_pages=10, max_jobs=50,
+            task_id = create_target_task(
+                database,
+                keyword="Python开发",
+                city="上海",
+                salary_filter="",
+                experience_filter="",
+                degree_filter="",
+                target_jobs=50,
             )
             token = "worker"
             self.assertTrue(database.reserve_worker(task_id, token))

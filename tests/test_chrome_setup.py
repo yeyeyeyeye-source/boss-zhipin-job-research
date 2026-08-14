@@ -356,10 +356,28 @@ class ChromeSetupTests(unittest.TestCase):
 
             self.assertEqual(scrape_list.call_args.args[2], expected)
 
-    def test_streamlit_page_inputs_reuse_core_page_limit(self):
-        app_source = (SCRIPT_PATH.parents[1] / "app.py").read_text(encoding="utf-8")
+    def test_streamlit_uses_generic_target_and_fixed_page_ceiling(self):
+        project_root = SCRIPT_PATH.parents[1]
+        app_source = (project_root / "app.py").read_text(encoding="utf-8")
+        readme_zh = (project_root / "README.md").read_text(encoding="utf-8")
+        readme_en = (project_root / "README.en.md").read_text(encoding="utf-8")
 
-        self.assertEqual(app_source.count("max_value=core.MAX_PAGES"), 2)
+        self.assertNotIn("RUN_MODE_LIMITS", app_source)
+        self.assertNotIn("resolve_job_limit", app_source)
+        self.assertNotIn("最大抓取页数", app_source)
+        self.assertNotIn("分阶段运行模式", app_source)
+        self.assertNotIn('value="AI运营"', app_source)
+        self.assertIn('placeholder="例如：产品经理、Python 开发"', app_source)
+        self.assertIn("create_target_task(", app_source)
+        self.assertIn("max_value=core.MAX_TASK_JOBS", app_source)
+        self.assertIn('max_pages=int(selected_task["max_pages"])', app_source)
+        self.assertIn('run_mode=str(selected_task["run_mode"])', app_source)
+        self.assertIn("目标岗位数量", readme_zh)
+        self.assertIn("target job count", readme_en.lower())
+        self.assertNotIn("50条扩容测试", readme_zh)
+        self.assertNotIn("Staged limits", readme_en)
+        self.assertNotIn("AI-operations relevance review", readme_en)
+        self.assertNotIn("City `AI产品运营` tasks", readme_en)
 
     def test_resolve_city_empty_input(self):
         module = load_module()

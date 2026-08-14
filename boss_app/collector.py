@@ -92,7 +92,11 @@ class Collector:
 
     @staticmethod
     def _requires_ai_operations_gate(task: dict[str, Any]) -> bool:
-        return uses_qualified_target(task.get("keyword"), task.get("city"))
+        if task.get("strategy_id"):
+            return False
+        return uses_qualified_target(
+            task.get("keyword"), task.get("city"), task.get("target_role"),
+        )
 
     @staticmethod
     def _requires_ai_relevance(task: dict[str, Any]) -> bool:

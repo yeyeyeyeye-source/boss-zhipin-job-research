@@ -80,6 +80,8 @@ CITY_GROUP_URL = "https://www.zhipin.com/wapi/zpCommon/data/cityGroup.json"
 
 # 请求频率保护
 MAX_PAGES = 15          # 单次最大页数
+LIST_PAGE_SIZE = 30     # BOSS 列表接口每页候选数
+MAX_TASK_JOBS = MAX_PAGES * LIST_PAGE_SIZE
 MAX_API_REQUESTS = 500  # 单次最大 API 请求数
 
 def get_default_chrome_path():
@@ -1687,7 +1689,7 @@ def fetch_list_page(cdp, sid, keyword, city_code, page, filters,
         "query": keyword,
         "city": city_code,
         "page": page,
-        "pageSize": 30,
+        "pageSize": LIST_PAGE_SIZE,
     }
     for key, value in filters.items():
         if value:

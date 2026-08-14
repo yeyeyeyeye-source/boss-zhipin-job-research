@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from boss_app.db import DEFAULT_DB_PATH, Database, uses_qualified_target
 from boss_app.exporter import export_task_to_excel
 from boss_app.login_manager import LoginManager, LoginState, LoginStatus
-from boss_app.task_manager import RUN_MODE_LIMITS, TaskManager, resolve_job_limit
+from boss_app.task_manager import TaskManager, create_target_task
 from scripts import boss_cdp_raw as core
 
 
@@ -50,41 +50,34 @@ def main() -> None:
     with st.sidebar:
         st.header("新建采集任务")
         with st.form("new_task"):
-            keyword = st.text_input("岗位名称 *", value="AI运营")
+            keyword = st.text_input(
+                "岗位名称 *", placeholder="例如：产品经理、Python 开发",
+            )
             city = st.text_input("意向城市", value="全国")
             salary_name = st.selectbox("薪资范围", ["不限", *[name for name in core.SALARY_MAP if name != "不限"]])
             experience_name = st.selectbox(
                 "工作经验", ["不限", *[name for name in core.EXPERIENCE_MAP if name != "不限"]]
             )
             degree_name = st.selectbox("学历要求", ["不限", *[name for name in core.DEGREE_MAP if name != "不限"]])
-            run_mode_names = list(RUN_MODE_LIMITS)
-            run_mode = st.selectbox(
-                "分阶段运行模式",
-                run_mode_names,
-                index=run_mode_names.index("50条扩容测试"),
-            )
-            custom_jobs = st.number_input(
-                "自定义岗位数量", min_value=1, max_value=10000, value=10,
-                disabled=run_mode != "自定义数量",
-            )
-            max_pages = st.number_input(
-                "最大抓取页数", min_value=1, max_value=core.MAX_PAGES, value=10,
+            target_jobs = st.number_input(
+                "目标岗位数量", min_value=1, max_value=core.MAX_TASK_JOBS, value=10,
             )
             submitted = st.form_submit_button("开始采集", type="primary", use_container_width=True)
         if submitted:
             if not keyword.strip():
                 st.error("岗位名称不能为空")
             else:
-                max_jobs = resolve_job_limit(run_mode, int(custom_jobs))
-                task_id = database.create_task(
+                task_id = create_target_task(
+                    database,
                     keyword=keyword,
                     city=city,
                     salary_filter="" if salary_name == "不限" else core.SALARY_MAP[salary_name],
-                    experience_filter="" if experience_name == "不限" else core.EXPERIENCE_MAP[experience_name],
+                    experience_filter=(
+                        "" if experience_name == "不限"
+                        else core.EXPERIENCE_MAP[experience_name]
+                    ),
                     degree_filter="" if degree_name == "不限" else core.DEGREE_MAP[degree_name],
-                    max_pages=int(max_pages),
-                    max_jobs=max_jobs,
-                    run_mode=run_mode,
+                    target_jobs=int(target_jobs),
                 )
                 st.session_state["active_task_id"] = task_id
                 if manager.start(task_id):
@@ -126,8 +119,10 @@ def main() -> None:
     existing_count = len(database.list_jobs(selected_id))
     selected_snapshot = manager.snapshot(selected_id)
     qualified_target = bool(
-        selected_task
-        and uses_qualified_target(selected_task["keyword"], selected_task["city"])
+        selected_task and not strategy_owned
+        and uses_qualified_target(
+            selected_task["keyword"], selected_task["city"], selected_task["target_role"],
+        )
     )
     minimum_target = selected_snapshot["qualified"] if qualified_target else existing_count
     if selected_task and selected_task["status"] == "waiting_for_access":
@@ -143,35 +138,30 @@ def main() -> None:
 
     with st.expander("扩大或调整当前历史任务"):
         st.caption(
-            f"当前已有 {existing_count} 条去重候选；全国 AI运营任务只把完整 JD "
-            "经 AI 审核合格的岗位计入目标，所有候选仍保留用于去重。"
+            f"当前已有 {existing_count} 条去重候选；目标岗位任务只把完整 JD "
+            "经 AI 审核匹配的岗位计入目标，所有候选仍保留用于去重。"
         )
-        mode_names = list(RUN_MODE_LIMITS)
-        current_mode = (selected_task or {}).get("run_mode", "自定义数量")
-        mode_index = mode_names.index(current_mode) if current_mode in mode_names else len(mode_names) - 1
         with st.form("expand_task"):
-            expanded_mode = st.selectbox("新的运行模式", mode_names, index=mode_index)
-            expanded_custom_jobs = st.number_input(
-                "新的自定义岗位数量", min_value=max(1, minimum_target), max_value=10000,
-                value=max(minimum_target, int((selected_task or {}).get("max_jobs", 10))),
-                disabled=expanded_mode != "自定义数量",
-            )
-            expanded_pages = st.number_input(
-                "新的最大抓取页数", min_value=1, max_value=core.MAX_PAGES,
-                value=int((selected_task or {}).get("max_pages", 1)),
+            current_target = int(selected_task["max_jobs"])
+            expanded_jobs = st.number_input(
+                "新的目标岗位数量",
+                min_value=max(1, minimum_target),
+                max_value=max(core.MAX_TASK_JOBS, current_target),
+                value=max(minimum_target, current_target),
             )
             expand_submitted = st.form_submit_button(
                 "保存参数并从断点继续", disabled=strategy_owned,
             )
         if expand_submitted:
             try:
-                expanded_jobs = resolve_job_limit(expanded_mode, int(expanded_custom_jobs))
+                expanded_jobs = int(expanded_jobs)
                 if expanded_jobs < minimum_target:
                     count_name = "已合格" if qualified_target else "已有"
                     raise ValueError(f"目标数量不能小于{count_name} {minimum_target} 条")
                 if manager.expand(
                     selected_id, max_jobs=expanded_jobs,
-                    max_pages=int(expanded_pages), run_mode=expanded_mode,
+                    max_pages=int(selected_task["max_pages"]),
+                    run_mode=str(selected_task["run_mode"]),
                 ):
                     st.success(f"目标已更新为 {expanded_jobs} 条，并从现有进度继续")
                 else:
@@ -235,10 +225,9 @@ def main() -> None:
         metrics[6].metric("不相关", snapshot["irrelevant"])
         lower = st.columns(4)
         lower[0].metric("失败数量", snapshot["failed"])
-        lower[1].metric("最大页数", snapshot["max_pages"])
-        lower[2].metric("最大岗位数", snapshot["max_jobs"])
+        lower[1].metric("目标岗位数", snapshot["max_jobs"])
+        lower[2].metric("人工复核", snapshot["manual_review"])
         lower[3].metric("当前岗位", _find_current_job(database, task_id, snapshot["current_job_id"]))
-        st.write(f"运行模式：{snapshot.get('run_mode') or '自定义数量'}")
         st.write(f"最近错误：{snapshot['error_message'] or '-'}")
         st.write(f"输出文件：{snapshot['output_path'] or '-'}")
 

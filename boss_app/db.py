@@ -106,8 +106,10 @@ def normalize_city_name(value: Any) -> str:
     return str(value or "").split("·", 1)[0].strip(" ·")
 
 
-def uses_qualified_target(keyword: Any, city: Any) -> bool:
+def uses_qualified_target(keyword: Any, city: Any, target_role: Any = "") -> bool:
     """Return whether a task target counts AI-qualified jobs, not candidates."""
+    if str(target_role or "").strip():
+        return True
     normalized_keyword = str(keyword or "").replace(" ", "").casefold()
     return normalized_keyword == "ai运营" and str(city or "").strip() == "全国"
 
@@ -477,13 +479,16 @@ class Database:
             raise ValueError("最大岗位数量和最大页数必须大于 0")
         with self.connect() as connection:
             task = connection.execute(
-                "SELECT worker_token, keyword, city FROM tasks WHERE task_id=?", (task_id,)
+                "SELECT worker_token, keyword, city, target_role FROM tasks WHERE task_id=?",
+                (task_id,),
             ).fetchone()
             if task is None:
                 raise KeyError(task_id)
             if task["worker_token"]:
                 raise RuntimeError("任务正在运行，不能修改扩容参数")
-            qualified_target = uses_qualified_target(task["keyword"], task["city"])
+            qualified_target = uses_qualified_target(
+                task["keyword"], task["city"], task["target_role"],
+            )
             minimum = connection.execute(
                 (
                     "SELECT COUNT(*) FROM jobs WHERE task_id=? "
